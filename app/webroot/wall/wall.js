@@ -457,13 +457,14 @@
         } else if (!states.length) {
             cls = 'is-wait';
             text = 'Connecting…';
-        } else if (states.indexOf('fail') === -1) {
+        } else if (states.indexOf('ok') !== -1) {
+            // Live while any panel is refreshing; a slow panel only marks
+            // itself "stale" next to its own title.
             cls = 'is-ok';
             text = 'Live · updated ' + hms(lastOk);
         } else {
-            cls = states.indexOf('ok') === -1 ? 'is-down' : 'is-warn';
-            text = (cls === 'is-down' ? 'Offline' : 'Partly stale')
-                + (lastOk ? ' · last update ' + hms(lastOk) : '');
+            cls = 'is-down';
+            text = 'Offline' + (lastOk ? ' · last update ' + hms(lastOk) : '');
         }
         statusEl.className = 'w-status ' + cls;
         statusEl.lastChild.textContent = text;
