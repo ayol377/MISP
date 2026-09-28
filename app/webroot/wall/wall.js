@@ -82,7 +82,14 @@
     function pad(n) {
         return (n < 10 ? '0' : '') + n;
     }
+    // Wall time zone: Pakistan Standard Time, UTC+5, no DST. Dates are
+    // shifted by the offset and read back with the getUTC* accessors.
+    var TZ_OFFSET_MS = 5 * 3600 * 1000, TZ_LABEL = 'PKT';
+    function local(d) {
+        return new Date(d.getTime() + TZ_OFFSET_MS);
+    }
     function hms(d) {
+        d = local(d);
         return pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()) + ':' + pad(d.getUTCSeconds());
     }
     var skew = 0; // server clock - local clock, ms
@@ -327,7 +334,7 @@
                 var bar = el('i', median > 0 && n > 3 * median ? 'is-spike' : '');
                 bar.style.height = (n / max * 100).toFixed(1) + '%';
                 var t = new Date((d.start + i * d.bucket) * 1000);
-                bar.title = t.toISOString().slice(5, 13).replace('T', ' ') + ':00 UTC · ' + fmt(n);
+                bar.title = local(t).toISOString().slice(5, 13).replace('T', ' ') + ':00 ' + TZ_LABEL + ' · ' + fmt(n);
                 bars.appendChild(bar);
             });
             root.appendChild(bars);
@@ -530,8 +537,9 @@
     // ---- clock ------------------------------------------------------------
     function tick() {
         var now = new Date(Date.now() + skew);
+        var day = local(now);
         document.getElementById('w-clock').textContent = hms(now);
-        document.getElementById('w-date').textContent = now.getUTCFullYear() + '.' + pad(now.getUTCMonth() + 1) + '.' + pad(now.getUTCDate());
+        document.getElementById('w-date').textContent = day.getUTCFullYear() + '.' + pad(day.getUTCMonth() + 1) + '.' + pad(day.getUTCDate());
     }
     tick();
     setInterval(tick, 1000);
