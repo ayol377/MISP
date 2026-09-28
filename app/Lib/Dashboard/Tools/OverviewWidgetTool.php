@@ -190,6 +190,48 @@ class OverviewWidgetTool
     }
 
     /**
+     * Attribute-level counterpart of eventTagRows(): (event_id, tag name)
+     * rows for tags starting with $tagPrefix on non-deleted attributes the
+     * user may see, in events with Event.timestamp >= $start.
+     *
+     * ponytail: capped at $limit rows, as eventTagRows().
+     */
+    public static function attributeTagRows(array $user, $tagPrefix, $start, array $eventFilter = [], $limit = 50000)
+    {
+        $conditions = self::window('Event.timestamp', $start);
+        $conditions['Tag.name LIKE'] = $tagPrefix . '%';
+        $conditions['Attribute.deleted'] = 0;
+        list($conditions, $joins) = self::attributeQuery($user, $conditions, $eventFilter);
+        if (!in_array('Event', array_column($joins, 'alias'), true)) {
+            $joins[] = self::eventJoin('Attribute.event_id');
+        }
+        $joins[] = [
+            'table' => 'attribute_tags',
+            'alias' => 'AttributeTag',
+            'type' => 'INNER',
+            'conditions' => ['AttributeTag.attribute_id = Attribute.id'],
+        ];
+        $joins[] = [
+            'table' => 'tags',
+            'alias' => 'Tag',
+            'type' => 'INNER',
+            'conditions' => ['Tag.id = AttributeTag.tag_id'],
+        ];
+        $rows = ClassRegistry::init('MispAttribute')->find('all', [
+            'recursive' => -1,
+            'fields' => ['DISTINCT Attribute.event_id', 'Tag.name'],
+            'joins' => $joins,
+            'conditions' => $conditions,
+            'limit' => $limit,
+        ]);
+        $out = [];
+        foreach ($rows as $row) {
+            $out[] = [(int)$row['Attribute']['event_id'], (string)$row['Tag']['name']];
+        }
+        return $out;
+    }
+
+    /**
      * Galaxy element values under $key for the clusters whose tag_name is
      * in $tagNames, restricted to clusters the user may see.
      *

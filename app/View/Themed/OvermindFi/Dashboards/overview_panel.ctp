@@ -94,6 +94,9 @@ case 'stats':
     break;
 
 case 'origin':
+    if (empty($data['data'])) {
+        echo $empty(__('No events in this range carry a threat-actor galaxy tag (misp-galaxy:threat-actor) whose cluster has a country. Try a longer range, or tag events with their threat actor.'));
+    }
     echo $this->element('dashboard/Widgets/DotMap', ['data' => $data]);
     break;
 
