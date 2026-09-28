@@ -9,3 +9,11 @@
 .fi-num { font-family: 'Big Shoulders Display', 'Saira', sans-serif; font-weight: 500; letter-spacing: 0.03em; }
 .fi-dim { color: #a8a8a8; }
 .fi-faint { color: #7a7a7a; }
+
+/* Attribute/object type (Elements/genericElementsBS5/Badges/type.ctp) */
+.fi-type-chip {
+    display: inline-block; padding: 1px 6px; border-radius: 3px;
+    background: rgba(255,255,255,0.06); color: #a8a8a8;
+    font-family: 'Spline Sans Mono', ui-monospace, monospace; font-size: 11px;
+    line-height: 1.5; white-space: nowrap;
+}
