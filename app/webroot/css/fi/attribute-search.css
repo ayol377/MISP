@@ -1,1 +1,37 @@
-/* OvermindFi: attribute-search screen. */
+/* OvermindFi: attribute-search screen (Themed/OvermindFi/Attributes/search.ctp, index.ctp). */
+
+/* Form */
+.fi-as-intro { margin: 0 0 12px; font-size: 12px; color: var(--mfi-dim); }
+.fi-as-intro code { padding: 0 3px; border-radius: 3px; background: var(--mfi-panel); font-size: 11px; }
+.fi-as .form-label { margin-bottom: 4px; font-size: 12px; color: var(--mfi-dim); }
+.fi-as textarea.form-control { resize: vertical; min-height: 58px; }
+.fi-as textarea.fi-mono, .fi-as input.fi-mono { font-size: 11px; }
+.fi-as-help { min-height: 15px; margin-top: 3px; font-size: 11px; line-height: 1.35; color: var(--mfi-faint); }
+.fi-as-actions {
+  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;
+  padding-top: 12px; border-top: 1px solid var(--mfi-line);
+}
+.fi-as-actions .form-check-label { font-size: 12px; color: var(--mfi-dim); }
+
+/* Results */
+.fi-as-toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 12px; }
+.fi-as-export { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.fi-as-export .form-select { width: auto; min-width: 110px; }
+.fi-as-summary { display: flex; align-items: center; padding: 8px 12px; margin-bottom: 12px; font-size: 12px; }
+.fi-as-table { padding: 0; overflow: hidden; }
+.fi-as-table .table { font-size: 12px; }
+.fi-as-table thead th { font-size: 11px; font-weight: 500; color: var(--mfi-faint); white-space: nowrap; }
+.fi-as-table tbody td { padding-top: 9px; padding-bottom: 9px; }
+.fi-as-table tbody tr:hover > * { --bs-table-bg-state: rgba(255,255,255,0.025); }
+
+.fi-as-event { min-width: 120px; max-width: 220px; }
+.fi-as-event a { font-size: 11px; }
+.fi-as-info { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--mfi-faint); }
+.fi-as-table .idx-col-attribute_value p { font-family: 'Spline Sans Mono', ui-monospace, monospace; font-size: 11px; font-weight: 400; word-break: break-all; }
+.fi-as-comment { max-width: 220px; font-size: 11px; color: var(--mfi-faint); }
+.fi-as-date { font-size: 11px; white-space: nowrap; color: var(--mfi-dim); }
+
+/* Row whose value sits on a warninglist */
+.fi-as-table tr.fi-as-warn > td:first-child { border-left: 2px solid #f89406; }
+
+.fi-as-pager { display: flex; justify-content: flex-end; margin-top: 12px; }
