@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>MISP SOC wall</title>
+<link rel="icon" href="../img/favicon.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira:wght@400;500;600&family=Big+Shoulders+Display:wght@500&family=Spline+Sans+Mono:wght@400&display=swap">
+<link rel="stylesheet" href="wall.css">
+</head>
+<!--
+  MISP SOC wall: a static kiosk page. Every panel is filled from
+  GET <MISP URL>/dashboards/wall.json?panel=<key> (DashboardsController::wall)
+  and refreshed every 60 s by wall.js. Auth is either the API key set in
+  the settings panel (stored in this browser's localStorage) or, without
+  one, the browser's MISP session.
+-->
+<body>
+<div class="wall">
+  <header class="w-head">
+    <div class="w-brand">
+      <img src="../img/misp-logo-main-cmyk-icon%20coul.png" alt="" class="w-logo">
+      <span class="w-wordmark">MISP</span>
+      <span class="w-subtitle" id="w-subtitle">Threat picture</span>
+    </div>
+    <div class="w-clockbox">
+      <span class="w-status is-wait" id="w-status"><i></i><span>Connecting…</span></span>
+      <span class="w-date" id="w-date"></span>
+      <span class="w-clock"><span id="w-clock">--:--:--</span><small>UTC</small></span>
+      <button type="button" class="w-gear" id="w-gear" aria-label="Wall settings" title="Wall settings">&#9881;</button>
+    </div>
+  </header>
+
+  <section class="w-stats" data-panel="stats" aria-label="Last 24 hours"></section>
+
+  <main class="w-main">
+    <div class="w-col">
+      <section class="w-panel w-fill" data-panel="threats">
+        <h2>High-threat events<small>newest first</small></h2>
+        <div class="w-body"></div>
+      </section>
+    </div>
+    <div class="w-col">
+      <section class="w-panel" data-panel="ingest" style="flex:105">
+        <h2>Attributes added per hour<small>48h · red = above 3× median</small></h2>
+        <div class="w-body"></div>
+      </section>
+      <div class="w-row" style="flex:205">
+        <section class="w-panel" data-panel="ioc">
+          <h2>IOC types<small>24h vs 7-day average</small></h2>
+          <div class="w-body"></div>
+        </section>
+        <section class="w-panel" data-panel="sources">
+          <h2>By source<small>IDS attributes, 24h</small></h2>
+          <div class="w-body"></div>
+        </section>
+      </div>
+      <section class="w-panel" data-panel="indicators" style="flex:270">
+        <h2>Newest IDS indicators<small>to_ids = 1</small></h2>
+        <div class="w-body"></div>
+      </section>
+    </div>
+    <div class="w-col">
+      <section class="w-panel" data-panel="tactics" style="flex:250">
+        <h2>ATT&amp;CK tactics<small>events tagged, 28d vs previous 28d</small></h2>
+        <div class="w-body"></div>
+      </section>
+      <section class="w-panel" data-panel="category" style="flex:225">
+        <h2>By category<small>attributes, 24h</small></h2>
+        <div class="w-body"></div>
+      </section>
+      <section class="w-panel" data-panel="tlp" style="flex:0 0 auto">
+        <h2>TLP of new events<small>24h</small></h2>
+        <div class="w-body"></div>
+      </section>
+    </div>
+    <div class="w-col">
+      <section class="w-panel" data-panel="actors" style="flex:170">
+        <h2>Top threat actors<small>events, 7d</small></h2>
+        <div class="w-body"></div>
+      </section>
+      <section class="w-panel" data-panel="tags" style="flex:255">
+        <h2>Top tags<small>events, 24h</small></h2>
+        <div class="w-body"></div>
+      </section>
+      <section class="w-panel" data-panel="sync" style="flex:160">
+        <h2>Feeds and sync<small>worst first</small></h2>
+        <div class="w-body"></div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="w-ticker" data-panel="ticker">
+    <span class="w-ticker-label">Latest published</span>
+    <div class="w-ticker-viewport"><div class="w-ticker-track"></div></div>
+    <span class="w-ticker-note">every 60s</span>
+  </footer>
+</div>
+
+<dialog class="w-settings" id="w-settings">
+  <form method="dialog" id="w-settings-form">
+    <h2>Wall settings</h2>
+    <label>MISP URL
+      <input type="url" name="url" id="w-set-url" autocomplete="off" spellcheck="false">
+    </label>
+    <label>API key
+      <input type="password" name="key" id="w-set-key" autocomplete="off" spellcheck="false" placeholder="Leave empty to use your MISP login session">
+    </label>
+    <p class="w-help">
+      Open the wall from the MISP server itself (…/wall/): MISP sends no CORS
+      headers, so a different MISP URL only works behind the same origin.
+      The key is kept in this browser's local storage and every number is
+      scoped to what the key's user may see. Use a read-only API key.
+    </p>
+    <p class="w-test" id="w-test" role="status"></p>
+    <div class="w-actions">
+      <button type="button" id="w-set-test">Test</button>
+      <button type="button" id="w-set-clear">Clear</button>
+      <span></span>
+      <button type="button" id="w-set-close">Close</button>
+      <button type="submit" value="save" class="is-primary">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="wall.js"></script>
+</body>
+</html>

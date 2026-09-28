@@ -270,6 +270,31 @@ class DashboardsController extends AppController
     }
 
     /**
+     * SOC wall data. The wall itself is the static page app/webroot/wall/
+     * (a kiosk can load it without a session and authenticate its data
+     * calls with an API key), so this action only answers JSON:
+     * GET /dashboards/wall.json?panel=<key> -> {panel, now, data}, with
+     * data from SocWallTool (shapes documented there). A browser landing
+     * here is sent to the page.
+     */
+    public function wall()
+    {
+        if (!$this->_isRest()) {
+            return $this->redirect('/wall/');
+        }
+        if (!$this->request->is('get')) {
+            throw new MethodNotAllowedException(__('GET only.'));
+        }
+        App::uses('SocWallTool', 'Lib/Dashboard/Tools');
+        $panel = $this->request->query['panel'] ?? null;
+        $data = is_string($panel) ? SocWallTool::panel($this->Auth->user(), $panel) : null;
+        if ($data === null) {
+            throw new NotFoundException(__('Invalid panel.'));
+        }
+        return $this->RestResponse->viewData(['panel' => $panel, 'now' => time(), 'data' => $data], 'json');
+    }
+
+    /**
      * Persist the user's dashboard layout. Mirrors v1's
      * `DashboardsController::updateSettings` contract so REST clients
      * written against v1 keep working: `POST {Dashboard: {value:

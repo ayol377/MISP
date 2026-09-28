@@ -84,6 +84,7 @@ $panel = function ($key, $title, $note = '', $class = '') use ($panels, $url) {
             </form>
         </div>
         <div class="fi-ov-head-right">
+            <a class="fi-ov-customize" href="<?= h($baseurl . '/wall/') ?>" target="_blank" rel="noopener"><?= __('Wall view') ?></a>
             <a class="fi-ov-customize" href="<?= h($base . '?board=1') ?>"><?= __('Customize dashboard') ?></a>
             <nav class="fi-ov-ranges" aria-label="<?= h(__('Time range')) ?>">
 <?php foreach ($ranges as $range): ?>

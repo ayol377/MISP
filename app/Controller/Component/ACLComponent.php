@@ -197,6 +197,7 @@ class ACLComponent extends Component
         ],
         'dashboards' => array(
             'index' => array('*'),
+            'wall' => array('*'),
             'widgets' => array('*'),
             'updateSettings' => array('*'),
             'updateWidgetSettings' => array('*'),

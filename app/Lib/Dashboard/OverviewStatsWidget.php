@@ -52,11 +52,19 @@ class OverviewStatsWidget
     /** Event.* narrowing for this handler() call (eventFilter()). */
     private $filter = [];
 
+    /**
+     * Opt-in `exclude_dump_events`: leaves daily IOC-dump events out of the
+     * event-centric counts (events, proposals) only; the indicator counts
+     * keep them.
+     */
+    private $eventOnlyFilter = [];
+
     public function handler($user, $options = array())
     {
         $window = OverviewWidgetTool::parseWindow($options, 30 * OverviewWidgetTool::DAY);
         // Optional Scope / Distribution / Published narrowing (fi Overview).
-        $this->filter = OverviewWidgetTool::eventFilter($user, $options);
+        $this->filter = OverviewWidgetTool::eventFilter($user, array_diff_key($options, ['exclude_dump_events' => 1]));
+        $this->eventOnlyFilter = empty($options['exclude_dump_events']) ? [] : OverviewWidgetTool::dumpEventExclusion();
         $now = time();
         $cur = $window === -1 ? [null, null] : [$now - $window, null];
         $prior = $window === -1 ? null : [$now - 2 * $window, $now - $window];
@@ -128,6 +136,9 @@ class OverviewStatsWidget
         $conditions += OverviewWidgetTool::window('Event.timestamp', $start, $end);
         if (!empty($this->filter)) {
             $conditions[] = $this->filter;
+        }
+        if (!empty($this->eventOnlyFilter)) {
+            $conditions[] = $this->eventOnlyFilter;
         }
         return (int)$eventModel->find('count', ['recursive' => -1, 'conditions' => $conditions]);
     }
@@ -255,11 +266,13 @@ class OverviewStatsWidget
                 ],
             ];
         }
-        if (!empty($this->filter)) {
-            if (empty($joins)) {
-                $joins[] = OverviewWidgetTool::eventJoin('ShadowAttribute.event_id');
+        foreach ([$this->filter, $this->eventOnlyFilter] as $filter) {
+            if (!empty($filter)) {
+                if (empty($joins)) {
+                    $joins[] = OverviewWidgetTool::eventJoin('ShadowAttribute.event_id');
+                }
+                $conditions['AND'][] = $filter;
             }
-            $conditions['AND'][] = $this->filter;
         }
         return (int)$proposalModel->find('count', [
             'recursive' => -1,

@@ -16,6 +16,32 @@ class OverviewWidgetTool
     const DAY = 86400;
 
     /**
+     * Event-level tags (compared lower-case) marking daily IOC dumps rather
+     * than real incidents; event-centric views can leave such events out
+     * with the `exclude_dump_events` option (see dumpEventExclusion()).
+     */
+    const DUMP_EVENT_TAGS = ['type:osint', 'osint:source-type="block-or-filter-list"'];
+
+    /**
+     * Condition leaving out events that carry a DUMP_EVENT_TAGS tag, or []
+     * when no such tag exists on this instance.
+     */
+    public static function dumpEventExclusion()
+    {
+        $tagIds = ClassRegistry::init('Tag')->find('column', [
+            'conditions' => ['LOWER(Tag.name)' => self::DUMP_EVENT_TAGS],
+            'fields' => ['Tag.id'],
+        ]);
+        if (empty($tagIds)) {
+            return [];
+        }
+        return ['NOT' => [
+            'Event.id IN (SELECT event_id FROM event_tags WHERE tag_id IN ('
+                . implode(',', array_map('intval', $tagIds)) . '))',
+        ]];
+    }
+
+    /**
      * Resolve the `time_window` option (already canonical-translated:
      * "<N>d", int seconds or -1) to seconds back from now, or -1 for all
      * time. Mirrors TrendingWidget::parseWindow.
@@ -71,6 +97,7 @@ class OverviewWidgetTool
      *   published    '0' | '1'            → Event.published
      *   distribution int | int[] (0..5)   → Event.distribution IN (...)
      *   own_org      truthy               → Event.orgc_id = viewer's org
+     *   exclude_dump_events truthy        → dumpEventExclusion()
      *
      * @return array Event.* conditions ([] when no filter is set)
      */
@@ -93,6 +120,9 @@ class OverviewWidgetTool
         }
         if (!empty($options['own_org'])) {
             $conditions['Event.orgc_id'] = (int)$user['org_id'];
+        }
+        if (!empty($options['exclude_dump_events'])) {
+            $conditions += self::dumpEventExclusion();
         }
         return $conditions;
     }
