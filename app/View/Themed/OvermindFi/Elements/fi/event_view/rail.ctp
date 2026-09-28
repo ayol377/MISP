@@ -31,22 +31,22 @@ foreach ($event['Galaxy'] ?? [] as $galaxy) {
     }
 }
 ?>
-<aside class="fi-ev-rail">
-    <div class="fi-panel fi-ev-stats">
+<aside class="fi-evw-rail">
+    <div class="fi-panel fi-evw-stats">
         <div>
-            <div class="fi-ev-stat-label"><?= __('Attributes') ?></div>
-            <div class="fi-ev-stat-value">
+            <div class="fi-evw-stat-label"><?= __('Attributes') ?></div>
+            <div class="fi-evw-stat-value">
                 <span class="fi-num"><?= number_format((int)($attribute_count ?? 0)) ?></span>
-                <span class="fi-ev-stat-max fi-mono" id="fi-ev-ids" hidden>
+                <span class="fi-evw-stat-max fi-mono" id="fi-evw-ids" hidden>
                     <?= __('IDS') ?> <span></span>
                 </span>
             </div>
         </div>
         <div>
-            <div class="fi-ev-stat-label"><?= __('Sightings') ?></div>
-            <div class="fi-ev-stat-value">
-                <span class="fi-num" id="fi-ev-sightings">&ndash;</span>
-                <span class="fi-ev-stat-max fi-mono" id="fi-ev-fp" hidden
+            <div class="fi-evw-stat-label"><?= __('Sightings') ?></div>
+            <div class="fi-evw-stat-value">
+                <span class="fi-num" id="fi-evw-sightings">&ndash;</span>
+                <span class="fi-evw-stat-max fi-mono" id="fi-evw-fp" hidden
                       title="<?= h(__('False positives')) ?>">
                     <?= __('FP') ?> <span></span>
                 </span>
@@ -59,10 +59,10 @@ foreach ($event['Galaxy'] ?? [] as $galaxy) {
             <?= __('Correlated events') ?>
             <span class="fi-panel-note"><?= __('shared values') ?></span>
         </div>
-        <ol class="fi-ev-rank" id="fi-ev-related">
+        <ol class="fi-evw-rank" id="fi-evw-related">
             <li class="fi-faint"><?= __('Loading…') ?></li>
         </ol>
-        <button type="button" class="btn fi-btn-text w-100" id="fi-ev-related-more" hidden></button>
+        <button type="button" class="btn fi-btn-text w-100" id="fi-evw-related-more" hidden></button>
     </div>
 
     <div class="fi-panel">
@@ -71,7 +71,7 @@ foreach ($event['Galaxy'] ?? [] as $galaxy) {
             <span class="fi-panel-note"><?= __('country galaxy + victim tags') ?></span>
         </div>
         <?php if (empty($countries)): ?>
-            <p class="fi-faint fi-ev-empty mb-0">
+            <p class="fi-faint fi-evw-empty mb-0">
                 <?= __('No country clusters on this event.') ?>
             </p>
         <?php else: ?>
@@ -104,18 +104,18 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     json(base + 'viewAttributes/' + id + suffix + '/toIDS:1/limit:1.json')
-        .then(function (d) { reveal('fi-ev-ids', d.total); })
+        .then(function (d) { reveal('fi-evw-ids', d.total); })
         .catch(function () {});
 
     json(base + 'viewEventSightings/' + id + '.json')
         .then(function (d) {
-            document.getElementById('fi-ev-sightings').textContent = fmt(d.positive + d.negative);
-            if (d.negative) reveal('fi-ev-fp', d.negative);
+            document.getElementById('fi-evw-sightings').textContent = fmt(d.positive + d.negative);
+            if (d.negative) reveal('fi-evw-fp', d.negative);
         })
         .catch(function () {});
 
-    var list = document.getElementById('fi-ev-related');
-    var more = document.getElementById('fi-ev-related-more');
+    var list = document.getElementById('fi-evw-related');
+    var more = document.getElementById('fi-evw-related-more');
     json(base + 'viewRelatedEvents/' + id + '.json')
         .then(function (d) {
             var rows = (d.RelatedEvent || []).map(function (r) { return r.Event; });

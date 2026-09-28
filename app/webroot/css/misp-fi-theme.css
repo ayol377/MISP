@@ -45,7 +45,6 @@
   --bs-info: #2f96b4;                 --bs-info-rgb: 47,150,180;
   --bs-warning: #f89406;              --bs-warning-rgb: 248,148,6;
   --bs-danger: #da4f49;               --bs-danger-rgb: 218,79,73;
-  --bs-light: #2a2a2a;                --bs-light-rgb: 42,42,42;
   --bs-dark: #101010;                 --bs-dark-rgb: 16,16,16;
   --bs-primary-bg-subtle: rgba(0,119,179,0.16);
   --bs-primary-text-emphasis: #80c9ee;
@@ -259,3 +258,14 @@ body[data-controller="users"][data-action="register"],
 body[data-controller="users"][data-action="forgot"],
 body[data-controller="users"][data-action="change_pw"] { background: var(--mfi-bg) !important; background-image: none !important; }
 body[data-controller="users"] .card { background: var(--mfi-raised); border: 1px solid var(--mfi-line); box-shadow: none; }
+
+/* Overmind styles these under [data-bs-theme="dark"] with gray-800 fills;
+   match that specificity so the fi values win (row "⋮" buttons, mass-select
+   checkboxes). */
+[data-bs-theme] .btn-light {
+  --bs-btn-bg: rgba(255,255,255,0.06); --bs-btn-border-color: rgba(255,255,255,0.08); --bs-btn-color: #eeeeee;
+  --bs-btn-hover-bg: rgba(255,255,255,0.11); --bs-btn-hover-border-color: rgba(255,255,255,0.14); --bs-btn-hover-color: #ffffff;
+  --bs-btn-active-bg: rgba(255,255,255,0.14); --bs-btn-active-border-color: rgba(255,255,255,0.18); --bs-btn-active-color: #ffffff;
+}
+[data-bs-theme] .form-check-input { --bs-form-check-bg: #121212; background-color: #121212; border-color: rgba(255,255,255,0.22); }
+[data-bs-theme] .form-check-input:checked { background-color: var(--mfi-blue); border-color: var(--mfi-blue); }

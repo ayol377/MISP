@@ -238,7 +238,7 @@ $itemClass = function (array $action) {
             data-bs-toggle="dropdown" aria-expanded="false">
         <?= __('More') ?>
     </button>
-    <ul class="dropdown-menu dropdown-menu-end fi-ev-more">
+    <ul class="dropdown-menu dropdown-menu-end fi-evw-more">
         <?php foreach ($actions as $action): ?>
             <?php if (!empty($action['divider'])): ?>
                 <?php if (!empty($action['label'])): ?>

@@ -21,9 +21,10 @@ body.mfi-shell main.content { padding: 22px 24px; }
     background: #101010; border-right: 1px solid rgba(255,255,255,0.07);
     font-family: 'Saira', system-ui, -apple-system, 'Segoe UI', sans-serif;
     font-size: 13px; line-height: 1.4; color: #eeeeee;
-    scrollbar-width: thin; scrollbar-color: #3a3a3a transparent;
+    scrollbar-width: none; /* still scrolls with the wheel */
     z-index: 1030;
 }
+.mfi-rail::-webkit-scrollbar { display: none; }
 .mfi-rail *, .mfi-rail *::before, .mfi-rail *::after { box-sizing: border-box; }
 .mfi-rail a, .mfi-rail a:hover, .mfi-rail a:focus { text-decoration: none; }
 .mfi-rail summary { list-style: none; }

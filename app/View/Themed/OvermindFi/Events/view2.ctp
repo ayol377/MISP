@@ -96,24 +96,24 @@ if ($canEdit) {
 }
 ?>
 
-<div class="fi-ev" data-event-id="<?= $eventId ?>">
+<div class="fi-evw" data-event-id="<?= $eventId ?>">
 
-    <header class="fi-ev-head">
-        <div class="fi-ev-titleblock" data-tour="page-title">
-            <nav class="fi-ev-crumb">
+    <header class="fi-evw-head">
+        <div class="fi-evw-titleblock" data-tour="page-title">
+            <nav class="fi-evw-crumb">
                 <a href="<?= h($base . '/index') ?>"><?= __('Events') ?></a>
                 <span>/</span>
                 <span class="fi-mono">#<?= $eventId ?></span>
             </nav>
-            <h1 class="fi-ev-title">
-                <span class="fi-ev-logo">
+            <h1 class="fi-evw-title">
+                <span class="fi-evw-logo">
                     <?= $orgLogo !== '' ? $orgLogo : h($orgInitials) ?>
                 </span>
-                <span class="fi-ev-info"><?= h($ev['info']) ?></span>
+                <span class="fi-evw-info"><?= h($ev['info']) ?></span>
             </h1>
         </div>
 
-        <div class="fi-ev-actions" data-tour="page-actions">
+        <div class="fi-evw-actions" data-tour="page-actions">
             <?php if ($canEdit && Configure::read('Plugin.Enrichment_services_enable')): ?>
                 <a class="btn fi-btn-text"
                    href="<?= h("$base/enrichEvent/$eventId") ?>"
@@ -149,7 +149,7 @@ if ($canEdit) {
         </div>
     </header>
 
-    <dl class="fi-ev-meta">
+    <dl class="fi-evw-meta">
         <div>
             <dt><?= __('Creator') ?></dt>
             <dd>
@@ -164,7 +164,7 @@ if ($canEdit) {
         </div>
         <div>
             <dt><?= __('Threat') ?></dt>
-            <dd class="fi-ev-threat fi-ev-threat-<?= $threatTone ?>"><?= h($threatName) ?></dd>
+            <dd class="fi-evw-threat fi-evw-threat-<?= $threatTone ?>"><?= h($threatName) ?></dd>
         </div>
         <div>
             <dt><?= __('Analysis') ?></dt>
@@ -178,21 +178,21 @@ if ($canEdit) {
             <dt><?= __('State') ?></dt>
             <dd><?= $isPublished ? __('Published') : __('Unpublished') ?></dd>
         </div>
-        <button type="button" class="btn fi-btn-text fi-ev-details-toggle collapsed"
-                data-bs-toggle="collapse" data-bs-target="#fi-ev-details"
-                aria-expanded="false" aria-controls="fi-ev-details">
+        <button type="button" class="btn fi-btn-text fi-evw-details-toggle collapsed"
+                data-bs-toggle="collapse" data-bs-target="#fi-evw-details"
+                aria-expanded="false" aria-controls="fi-evw-details">
             <?= __('Details') ?> <i class="fas fa-chevron-down"></i>
         </button>
     </dl>
 
-    <div class="collapse fi-ev-details" id="fi-ev-details">
+    <div class="collapse fi-evw-details" id="fi-evw-details">
         <?= $this->element('Events/View/event_general', ['data' => $event]) ?>
     </div>
 
-    <div class="fi-ev-body">
-        <section class="fi-ev-main">
-            <div class="fi-ev-tabbar">
-                <ul class="nav nav-tabs fi-ev-tabs" role="tablist" data-tour="view-tabs">
+    <div class="fi-evw-body">
+        <section class="fi-evw-main">
+            <div class="fi-evw-tabbar">
+                <ul class="nav nav-tabs fi-evw-tabs" role="tablist" data-tour="view-tabs">
                     <?php $first = true; foreach ($tabs as $id => [$title, $count]): ?>
                         <li class="nav-item" role="presentation">
                             <a class="nav-link nav-view<?= $first ? ' active' : '' ?>"
@@ -202,7 +202,7 @@ if ($canEdit) {
                                aria-selected="<?= $first ? 'true' : 'false' ?>">
                                 <?= h($title) ?>
                                 <?php if (!empty($count)): ?>
-                                    <span class="fi-ev-tabcount fi-mono"><?= h($count) ?></span>
+                                    <span class="fi-evw-tabcount fi-mono"><?= h($count) ?></span>
                                 <?php endif; ?>
                             </a>
                         </li>
@@ -225,8 +225,8 @@ if ($canEdit) {
                         </ul>
                     </li>
                 </ul>
-                <div class="fi-ev-tabtools">
-                    <button type="button" class="btn fi-btn-text" id="fi-ev-filter">
+                <div class="fi-evw-tabtools">
+                    <button type="button" class="btn fi-btn-text" id="fi-evw-filter">
                         <i class="fas fa-sliders"></i> <?= __('Filter') ?>
                     </button>
                     <?php foreach ($tabAdds as $id => [$label, $url, $tour]): ?>
@@ -265,25 +265,25 @@ if ($canEdit) {
     // Tab <-> URL hash, and the per-tab "add" button (view_layout.ctp's
     // script, extended to tabs that live in the "More" dropdown).
     function tabLink(hash) {
-        return document.querySelector('.fi-ev-tabs [data-bs-toggle="tab"][href="' + hash + '"]');
+        return document.querySelector('.fi-evw-tabs [data-bs-toggle="tab"][href="' + hash + '"]');
     }
     function activateFromHash() {
         var link = window.location.hash ? tabLink(window.location.hash) : null;
         if (link) bootstrap.Tab.getOrCreateInstance(link).show();
     }
     function currentTabId() {
-        var a = document.querySelector('.fi-ev-tabs .nav-view.active[href^="#tab-"]');
+        var a = document.querySelector('.fi-evw-tabs .nav-view.active[href^="#tab-"]');
         return a ? a.getAttribute('href').replace('#tab-', '') : null;
     }
     function syncTabActions(id) {
-        document.querySelectorAll('.fi-ev-tabtools [data-header-tab]').forEach(function (el) {
+        document.querySelectorAll('.fi-evw-tabtools [data-header-tab]').forEach(function (el) {
             el.classList.toggle('d-none', el.getAttribute('data-header-tab') !== id);
         });
     }
     document.addEventListener('DOMContentLoaded', function () {
         activateFromHash();
         syncTabActions(currentTabId());
-        document.querySelectorAll('.fi-ev-tabs [data-bs-toggle="tab"]').forEach(function (t) {
+        document.querySelectorAll('.fi-evw-tabs [data-bs-toggle="tab"]').forEach(function (t) {
             t.addEventListener('shown.bs.tab', function (e) {
                 var href = e.target.getAttribute('href');
                 history.replaceState(null, '', href);
@@ -292,8 +292,8 @@ if ($canEdit) {
         });
         // "Filter": focus the active tab's filter box, falling back to the
         // attributes tab when the active one has none.
-        document.getElementById('fi-ev-filter').addEventListener('click', function () {
-            var pane = document.querySelector('.fi-ev .tab-pane.active');
+        document.getElementById('fi-evw-filter').addEventListener('click', function () {
+            var pane = document.querySelector('.fi-evw .tab-pane.active');
             var field = pane && pane.querySelector('#filterField, input[type="search"]');
             if (!field) {
                 var link = tabLink('#tab-attributes');

@@ -516,7 +516,7 @@ if (!$inEventView) {
 // IDS reads Yes/No in this table (event-view.css): the labels travel as CSS
 // strings so they stay translatable.
 printf(
-    '<div class="fi-ev-attrs" style="%s">',
+    '<div class="fi-evw-attrs" style="%s">',
     h('--fi-yes:' . json_encode(__('Yes')) . ';--fi-no:' . json_encode(__('No')))
 );
 echo $this->element('genericElementsBS5/IndexTable/scaffold', [

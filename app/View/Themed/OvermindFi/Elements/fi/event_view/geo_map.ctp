@@ -147,7 +147,7 @@ if (!empty($points)):
         return round(($north - $lat) / $step * $px, 1);
     };
 ?>
-<svg class="fi-ev-geo" viewBox="0 0 <?= $cols * $px ?> <?= $rows * $px ?>"
+<svg class="fi-evw-geo" viewBox="0 0 <?= $cols * $px ?> <?= $rows * $px ?>"
      role="img" aria-label="<?= h(__('Targeted countries: %s', implode(', ', $countries))) ?>">
     <path d="<?= $paths[0] ?>" stroke="#4f6b82" stroke-opacity=".45"
           stroke-width="3.2" stroke-linecap="round"/>
@@ -162,7 +162,7 @@ if (!empty($points)):
     <?php endforeach; ?>
 </svg>
 <?php endif; ?>
-<ul class="fi-ev-geo-list">
+<ul class="fi-evw-geo-list">
     <?php foreach ($countries as $iso => $label): ?>
         <li><span class="fi-mono"><?= h($iso) ?></span> <?= h($label) ?></li>
     <?php endforeach; ?>
