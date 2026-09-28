@@ -354,11 +354,13 @@ class AppController extends Controller
                         $this->viewClass = 'Theme';
                     }
                 }
-                // OvermindFi is a skin of Overmind, not a separate view
-                // tree: render through Overmind so its views and the
-                // controller branches on $this->theme keep working.
+                // OvermindFi layers its own templates over Overmind's:
+                // $this->theme stays 'Overmind' so the controller
+                // branches keep working, and FiThemeView looks in
+                // Themed/OvermindFi/ before Themed/Overmind/.
                 if ($this->theme === 'OvermindFi') {
                     $this->theme = 'Overmind';
+                    $this->viewClass = 'FiTheme';
                     $this->set('themeVariant', 'fi');
                 }
                 $this->set('theme', $currentTheme);

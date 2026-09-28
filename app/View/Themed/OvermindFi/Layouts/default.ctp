@@ -1,6 +1,8 @@
 <?php
 /**
- * Overmind theme layout.
+ * OvermindFi layout: Overmind's default.ctp with the fi side rail on
+ * every page, Bootstrap 5 and legacy Bootstrap 2 alike. Keep the rest
+ * in step with Themed/Overmind/Layouts/default.ctp.
  */
 
 // Load the Overmind page registry in order to decide which asset stack to emit.
@@ -21,13 +23,9 @@ $isLegacyFullViewportPage = !$useBootstrap5
     && OvermindPages::normalise($currentController) === 'workflows'
     && OvermindPages::normalise($currentAction) === 'editor';
 
-// Offset behavior for the legacy navbar 
-$mainStyle = '';
-if (!$useBootstrap5) {
-    $debugBarShown = !empty($debugMode) && $debugMode !== 'debugOff';
-    $navbarOffset = ($debugBarShown || $isLegacyFullViewportPage) ? 0 : 50;
-    $mainStyle = ' style="padding-top:' . $navbarOffset . 'px;"';
-}
+// The rail replaces the fixed top navbar, so no offset on legacy pages
+$mainStyle = $useBootstrap5 ? '' : ' style="padding-top:0;"';
+$fiShell = !$isAuthPage;
 
 // Conversion between ISO 639-2 code (`Config.language`) and BCP 47 tag (lang attribute) 
 $htmlLang = 'en';
@@ -61,7 +59,7 @@ if (substr($currentAction, 0, 6) === 'admin_') {
 
 
 <!DOCTYPE html>
-<html lang="<?= h($htmlLang) ?>">
+<html lang="<?= h($htmlLang) ?>" data-bs-theme="dark">
 <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -79,6 +77,8 @@ if (substr($currentAction, 0, 6) === 'admin_') {
                 ['print', ['media' => 'print']],
                 ['misp-iconify', ['preload' => true]],
                 ['onboarding', ['preload' => true]],
+                ['misp-fi-theme', ['preload' => true]],
+                ['fi/screens', ['preload' => true]],
             ];
             $js = [
                 ['tom-select.complete.min', ['preload' => true]],
@@ -92,11 +92,15 @@ if (substr($currentAction, 0, 6) === 'admin_') {
                 ['chosen.min', ['preload' => true]],
                 ['main', ['preload' => true]],
                 ['print', ['media' => 'print']],
+                ['fi/legacy', ['preload' => true]],
             ];
             $js = [
                 ['jquery', ['preload' => true]],
                 ['chosen.jquery.min', ['preload' => true]],
             ];
+        }
+        if ($fiShell) {
+            $css[] = ['fi/rail', ['preload' => true]];
         }
         if (Configure::read('MISP.custom_css')) {
             $css[] = preg_replace('/\.css$/i', '', Configure::read('MISP.custom_css'));
@@ -121,18 +125,12 @@ if (substr($currentAction, 0, 6) === 'admin_') {
             }
         </style>
     <?php endif; ?>
-    <script>(function(){if(localStorage.getItem('darkMode')==='true'){document.documentElement.setAttribute('data-bs-theme','dark');}})()</script>
 </head>
-<body class="bg-light" data-controller="<?= h($currentController) ?>" data-action="<?= h($currentAction) ?>">
-    <div class="main-wrapper">
-        <!-- Navbar -->
-        <header>
+<body class="bg-light<?= $fiShell ? ' mfi-shell' : '' ?><?= $useBootstrap5 ? '' : ' mfi-legacy' ?>" data-controller="<?= h($currentController) ?>" data-action="<?= h($currentAction) ?>">
+    <?php // .mfi-app grid = [rail, .mfi-col > page + footer] ?>
+    <?php if ($fiShell): ?><div class="mfi-app"><?php else: ?><div class="main-wrapper"><?php endif; ?>
             <?php
-                if (!$useBootstrap5) {
-                    if (!$isLegacyFullViewportPage) {
-                        echo $this->element('global_menu');
-                    }
-                } elseif (!$isAuthPage) {
+                if ($fiShell) {
                     $context = [
                         'me' => $me ?? null,
                         'baseurl' => $baseurl,
@@ -147,14 +145,15 @@ if (substr($currentAction, 0, 6) === 'admin_') {
                         'theme' => $theme ?? null,
                         'themesEnabled' => $themesEnabled ?? false,
                     ];
-                    echo $this->element('navbar', [
+                    echo $this->element('fi_rail', [
                         'menus' => $this->Navbar->build($context),
                         'baseurl' => $baseurl,
                         'me' => $me ?? null,
+                        'bs5' => $useBootstrap5,
                     ]);
                 }
             ?>
-        </header>
+    <?php if ($fiShell): ?><div class="mfi-col"><div class="main-wrapper"><?php endif; ?>
         <?php if ($useBootstrap5 && !$isAuthPage && Configure::read('debug') > 0): ?>
             <!-- Debug strip. mispOvermind.js moves Cake's .cake-error blocks
                  in here and badges the count. -->
@@ -231,6 +230,7 @@ if (substr($currentAction, 0, 6) === 'admin_') {
             echo $this->element('footerBS5');
         }
     ?>
+    <?php if ($fiShell): ?></div></div><?php // .mfi-col, .mfi-app ?><?php endif; ?>
 
     <!-- Cake's query log, rendered only when debug is on -->
     <?= $this->element('sql_dump') ?>

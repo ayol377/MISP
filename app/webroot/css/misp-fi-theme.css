@@ -259,35 +259,3 @@ body[data-controller="users"][data-action="register"],
 body[data-controller="users"][data-action="forgot"],
 body[data-controller="users"][data-action="change_pw"] { background: var(--mfi-bg) !important; background-image: none !important; }
 body[data-controller="users"] .card { background: var(--mfi-raised); border: 1px solid var(--mfi-line); box-shadow: none; }
-
-/* ============================================================
-   Side rail (Elements/sidebar.ctp)
-   ============================================================ */
-body.mfi-shell .mfi-app { display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: 100vh; }
-body.mfi-shell .main-wrapper, body.mfi-shell main.content { padding-top: 0 !important; margin-top: 0 !important; }
-.mfi-sidebar { position: sticky; top: 0; height: 100vh; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; padding: 16px 10px 10px; background: #101010; border-right: 1px solid var(--mfi-line); }
-.mfi-brand { display: flex; align-items: center; gap: 10px; padding: 0 8px; color: #fff; text-decoration: none; }
-.mfi-brand-logo { height: 22px; width: auto; }
-.mfi-brand-name { font-family: 'Big Shoulders Display', 'Saira', sans-serif; font-size: 1.35rem; letter-spacing: 0.06em; }
-.mfi-search { position: relative; padding: 0 2px; }
-.mfi-search i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: 0.75rem; color: var(--mfi-faint); }
-.mfi-search .form-control { padding-left: 30px; background: rgba(255,255,255,0.05); border-color: transparent; }
-.mfi-nav { display: flex; flex-direction: column; gap: 2px; flex: 1; }
-.mfi-group-toggle { appearance: none; width: 100%; display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: none; border: 0; border-radius: 3px; color: var(--mfi-dim); font-size: 0.8125rem; font-weight: 500; text-align: left; }
-.mfi-group-toggle:hover { background: var(--mfi-hover); color: var(--mfi-text); }
-.mfi-group-toggle .mfi-chevron { margin-left: auto; font-size: 0.6rem; transition: transform .15s ease; }
-.mfi-group-toggle.collapsed .mfi-chevron { transform: rotate(-90deg); }
-.mfi-link { display: flex; align-items: center; gap: 8px; padding: 5px 10px 5px 30px; border-radius: 3px; color: var(--mfi-dim); font-size: 0.8125rem; text-decoration: none; }
-.mfi-link i { width: 14px; text-align: center; font-size: 0.75rem; opacity: 0.8; }
-.mfi-link-top { padding-left: 10px; font-weight: 500; }
-.mfi-link-sub { padding-left: 40px; }
-.mfi-link:hover { background: var(--mfi-hover); color: var(--mfi-text); }
-.mfi-link.active { background: var(--mfi-blue); color: #fff; }
-.mfi-sub-label { padding: 8px 10px 2px 30px; font-size: 0.6875rem; color: var(--mfi-faint); }
-.mfi-divider { margin: 6px 10px; border-color: var(--mfi-line); opacity: 1; }
-.mfi-foot { border-top: 1px solid var(--mfi-line); padding-top: 8px; gap: 2px; }
-.mfi-foot .nav-link { padding: 6px 10px; border-radius: 3px; color: var(--mfi-dim); font-size: 0.8125rem; }
-.mfi-foot .nav-link:hover { background: var(--mfi-hover); color: var(--mfi-text); }
-.mfi-foot .dropdown-menu { min-width: 240px; }
-body.mfi-shell .mfi-col { min-width: 0; display: flex; flex-direction: column; }
-body.mfi-shell .mfi-col > .main-wrapper { flex: 1; }

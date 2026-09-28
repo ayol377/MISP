@@ -1,0 +1,3 @@
+/* OvermindFi dark reskin for legacy Bootstrap 2 pages (pages Overmind
+   has not migrated yet, rendered with main.css + bootstrap.css). */
+body.mfi-legacy { background: #161616; color: #eeeeee; font-family: 'Saira', system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 13px; }

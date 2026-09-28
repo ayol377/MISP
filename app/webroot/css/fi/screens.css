@@ -1,0 +1,11 @@
+/* OvermindFi page layouts (Themed/OvermindFi/<Controller>/...).
+   Shared building blocks for the redesigned screens; values follow the
+   design tokens in misp-fi-theme.css. */
+
+.fi-panel { background: #1e1e1e; border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; padding: 16px; }
+.fi-panel-title { display: flex; align-items: baseline; gap: 8px; margin-bottom: 12px; font-size: 13px; font-weight: 500; color: #eeeeee; }
+.fi-panel-note { font-size: 11px; font-weight: 400; color: #7a7a7a; }
+.fi-mono { font-family: 'Spline Sans Mono', ui-monospace, monospace; }
+.fi-num { font-family: 'Big Shoulders Display', 'Saira', sans-serif; font-weight: 500; letter-spacing: 0.03em; }
+.fi-dim { color: #a8a8a8; }
+.fi-faint { color: #7a7a7a; }

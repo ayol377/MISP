@@ -1,45 +1,18 @@
 <?php
 /**
- * Overmind themed override of Layouts/dashboard.ctp (DD-08).
- *
- * Cake's Themed resolver picks this file when $this->theme is set
- * to 'Overmind' and the controller asks for $this->layout =
- * 'dashboard'. It mirrors Overmind's default.ctp BS5 chrome path —
- * navbar.ctp (Bootstrap-5 dark navbar) + footerBS5 + mainOvermind
- * CSS + mispOvermind JS — but takes that path unconditionally,
- * skipping the OvermindPages registry check Overmind's default.ctp
- * uses. The dashboard is a BS5-style surface by design (DD-08:
- * "modern and pleasant", away from BS2.3 styling) so the registry
- * branch wouldn't add anything useful here.
- *
- * Notably skipped vs Overmind's default.ctp:
- *   - headerSection — the dashboard already emits its own
- *     `<header class="misp-dashboard-header">` with title +
- *     toolbar + Edit toggle + "⋯ More" dropdown. Layering
- *     Overmind's page-title bar on top would be redundant.
- *   - The debug accordion — keeping the dashboard surface free
- *     of MISP debug noise for this view. Cake's sql_dump element
- *     is still emitted below so debug builds aren't silenced.
- *
- * The shared page-chrome behaviour (flash auto-dismiss, TomSelect
- * filter-bar init, lazy ajax tabs) comes from mispOvermind.js and
- * so runs here too; every piece of it is a no-op on a surface that
- * has no .topbar-filter and no .ajax-tab-content.
- *
- * The dashboard's own CSS (dashboard.default.css + the dormant
- * midnight overlay) is loaded after mainOvermind so its tokens
- * and selectors win where they overlap.
+ * OvermindFi dashboard layout: Overmind's Layouts/dashboard.ctp with
+ * the fi side rail and forced dark (midnight) tokens. Keep the rest in
+ * step with Themed/Overmind/Layouts/dashboard.ctp.
  */
 ?>
 <!DOCTYPE html>
-<html lang="<?= Configure::read('Config.language') === 'eng' ? 'en' : Configure::read('Config.language') ?>">
+<html data-bs-theme="dark" data-theme="midnight" lang="<?= Configure::read('Config.language') === 'eng' ? 'en' : Configure::read('Config.language') ?>">
 <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="shortcut icon" href="<?= $baseurl ?>/img/favicon.png">
     <title><?= h($title_for_layout) . ' - ' . h(Configure::read('MISP.title_text') ?: 'MISP') ?></title>
-    <?php echo $this->element('dashboard/theme_boot'); /* DD-51 no-FOUC light/dark boot */ ?>
     <?php
         $css = [
             ['bootstrap5-custom.min', ['preload' => true]],
@@ -61,6 +34,9 @@
             // → /theme/Overmind/css/dashboard/overmind.css.
             ['dashboard/overmind', ['preload' => true]],
             ['print', ['media' => 'print']],
+            ['misp-fi-theme', ['preload' => true]],
+            ['fi/rail', ['preload' => true]],
+            ['fi/screens', ['preload' => true]],
         ];
         if (Configure::read('MISP.custom_css')) {
             $css[] = preg_replace('/\.css$/i', '', Configure::read('MISP.custom_css'));
@@ -80,11 +56,10 @@
         ]);
     ?>
 </head>
-<body class="misp-dashboard-page"
+<body class="misp-dashboard-page mfi-shell"
       data-controller="<?= h($this->params['controller']) ?>"
       data-action="<?= h($this->params['action']) ?>">
-    <div class="main-wrapper">
-        <header>
+    <div class="mfi-app">
             <?php
                 // BS5 Overmind navbar — same build pattern as
                 // Themed/Overmind/Layouts/default.ctp's BS5 branch.
@@ -103,13 +78,14 @@
                     'themesEnabled' => $themesEnabled,
                 ];
                 $menus = $this->Navbar->build($context);
-                echo $this->element('navbar', [
+                echo $this->element('fi_rail', [
                     'menus' => $menus,
                     'baseurl' => $baseurl,
                     'me' => $me ?? null,
+                    'bs5' => true,
                 ]);
             ?>
-        </header>
+    <div class="mfi-col"><div class="main-wrapper">
         <main role="main" class="content" style="padding-top:0;">
             <div id="flashOverlay">
                 <div id="flashContainer">
@@ -123,6 +99,7 @@
     </div>
 
     <?= $this->element('footerBS5') ?>
+    </div></div><?php // .mfi-col, .mfi-app ?>
     <?= $this->element('sql_dump') ?>
 
     <!-- Modals, toasts, popovers and the loading overlay. Shared with

@@ -1,0 +1,104 @@
+/* OvermindFi side rail (Elements/fi_rail.ctp) and page shell.
+   Loaded on Bootstrap 5 and legacy Bootstrap 2 pages alike, so it uses
+   literal values rather than --bs-* variables and resets the bits of
+   either framework that leak into the rail. */
+@import url('https://fonts.googleapis.com/css2?family=Saira:wght@400;500;600&family=Big+Shoulders+Display:wght@500&family=Spline+Sans+Mono:wght@400&display=swap');
+
+body.mfi-shell { margin: 0; padding: 0 !important; background: #161616 !important; }
+body.mfi-shell .mfi-app { display: grid; grid-template-columns: 208px minmax(0, 1fr); min-height: 100vh; }
+body.mfi-shell .mfi-col { min-width: 0; display: flex; flex-direction: column; }
+body.mfi-shell .mfi-col > .main-wrapper { flex: 1; min-width: 0; }
+body.mfi-shell .main-wrapper,
+body.mfi-shell main.content { padding-top: 0 !important; margin-top: 0 !important; }
+body.mfi-shell main.content { padding: 22px 24px; }
+
+.mfi-rail {
+    position: sticky; top: 0; height: 100vh; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 18px;
+    padding: 22px 14px 10px; box-sizing: border-box;
+    background: #101010; border-right: 1px solid rgba(255,255,255,0.07);
+    font-family: 'Saira', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-size: 13px; line-height: 1.4; color: #eeeeee;
+    scrollbar-width: thin; scrollbar-color: #3a3a3a transparent;
+    z-index: 1030;
+}
+.mfi-rail *, .mfi-rail *::before, .mfi-rail *::after { box-sizing: border-box; }
+.mfi-rail a, .mfi-rail a:hover, .mfi-rail a:focus { text-decoration: none; }
+.mfi-rail summary { list-style: none; }
+.mfi-rail summary::-webkit-details-marker { display: none; }
+.mfi-rail :focus-visible { outline: none; box-shadow: 0 0 0 2px rgba(0,136,204,0.45); }
+
+.mfi-brand { display: flex; align-items: baseline; gap: 8px; padding: 0 8px; color: #eeeeee; }
+.mfi-brand:hover { color: #ffffff; }
+.mfi-brand-name { font-family: 'Big Shoulders Display', 'Saira', sans-serif; font-weight: 500; font-size: 24px; letter-spacing: 0.06em; line-height: 1; }
+.mfi-brand-org { font-family: 'Spline Sans Mono', ui-monospace, monospace; font-size: 10px; color: #7a7a7a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+
+.mfi-search { position: relative; display: flex; align-items: center; margin: 0; }
+.mfi-search > i { position: absolute; left: 12px; font-size: 12px; color: #7a7a7a; pointer-events: none; }
+.mfi-rail .mfi-search-input {
+    width: 100%; height: auto; margin: 0; padding: 7px 52px 7px 30px;
+    border: 1px solid transparent; border-radius: 3px; box-shadow: none;
+    background: rgba(255,255,255,0.06); color: #eeeeee;
+    font: inherit; font-size: 12px; line-height: 1.4;
+    -webkit-appearance: none; appearance: none;
+}
+.mfi-rail .mfi-search-input::placeholder { color: #7a7a7a; }
+.mfi-rail .mfi-search-input:focus { border-color: #0088cc; background: #121212; box-shadow: 0 0 0 2px rgba(0,136,204,0.3); }
+.mfi-kbd { position: absolute; right: 8px; padding: 0; background: none; border: 0; box-shadow: none; font-family: 'Spline Sans Mono', ui-monospace, monospace; font-size: 10px; color: #7a7a7a; pointer-events: none; }
+
+.mfi-nav { display: flex; flex-direction: column; gap: 18px; flex: 1; }
+.mfi-section { display: flex; flex-direction: column; gap: 2px; }
+.mfi-section-label { display: flex; align-items: center; font-size: 10px; line-height: 1.4; color: #7a7a7a; padding: 0 12px 4px; font-weight: 400; }
+summary.mfi-section-label { cursor: pointer; padding-top: 2px; border-radius: 3px; }
+summary.mfi-section-label:hover { color: #a8a8a8; }
+
+.mfi-link {
+    display: flex; align-items: center; gap: 8px; width: 100%;
+    padding: 6px 12px; border: 0; border-radius: 3px; margin: 0;
+    background: none; color: #a8a8a8; font: inherit; font-size: 13px; line-height: 1.4;
+    text-align: left; cursor: pointer;
+}
+.mfi-link > span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mfi-link > i, .mfi-link > .misp-icon { width: 14px; flex-shrink: 0; text-align: center; font-size: 12px; opacity: 0.75; }
+.mfi-rail a.mfi-link, .mfi-rail a.mfi-link:visited { color: #a8a8a8; }
+.mfi-rail .mfi-link:hover { background: rgba(255,255,255,0.06); color: #eeeeee; }
+.mfi-rail .mfi-link.active, .mfi-rail .mfi-link.active:hover { background: #0077b3; color: #ffffff; font-weight: 500; }
+.mfi-link.active > i { opacity: 1; }
+.mfi-count { flex: 0 0 auto !important; font-family: 'Spline Sans Mono', ui-monospace, monospace; font-size: 10px; color: #7a7a7a; }
+.mfi-theme-switch.on .mfi-count { color: #5bb75b; }
+.mfi-note { padding: 4px 12px; font-size: 11px; color: #f89406; }
+
+.mfi-chevron { margin-left: auto; font-size: 9px; opacity: 0.7; transition: transform .15s ease; }
+details:not([open]) > summary .mfi-chevron { transform: rotate(-90deg); }
+.mfi-user:not([open]) > summary .mfi-chevron { transform: none; }
+.mfi-user[open] > summary .mfi-chevron { transform: rotate(180deg); }
+.mfi-sub > summary { list-style: none; }
+.mfi-sub-items { display: flex; flex-direction: column; gap: 2px; padding: 2px 0 4px 14px; }
+
+.mfi-divider { margin: 6px 12px; border: 0; border-top: 1px solid rgba(255,255,255,0.07); }
+
+.mfi-user { position: relative; margin-top: auto; }
+.mfi-user-card { display: flex; align-items: center; gap: 10px; padding: 10px 8px 4px; border-top: 1px solid rgba(255,255,255,0.07); cursor: pointer; border-radius: 0 0 3px 3px; }
+.mfi-user-card:hover { background: rgba(255,255,255,0.04); }
+.mfi-user-logo { width: 26px; height: 26px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: 3px; background: #222222; overflow: hidden; }
+.mfi-user-logo img { max-width: 26px; max-height: 26px; }
+.mfi-user-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.mfi-user-name { font-size: 12px; color: #eeeeee; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mfi-user-role { font-size: 10px; color: #7a7a7a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mfi-user-menu {
+    position: absolute; left: 0; right: 0; bottom: calc(100% + 6px);
+    display: flex; flex-direction: column; gap: 2px; padding: 8px 6px;
+    max-height: 70vh; overflow-y: auto;
+    background: #222222; border: 1px solid rgba(255,255,255,0.1); border-radius: 4px;
+}
+.mfi-user-menu .mfi-section-label { padding-top: 2px; }
+
+/* Legacy (Bootstrap 2) pages: the fixed top navbar is gone */
+body.mfi-legacy .navbar-fixed-top { position: static; }
+body.mfi-legacy .mfi-col > .main-wrapper { overflow-x: auto; }
+
+@media (max-width: 900px) {
+    body.mfi-shell .mfi-app { grid-template-columns: 1fr; }
+    .mfi-rail { position: static; height: auto; max-height: none; }
+    .mfi-user-menu { position: static; margin-bottom: 6px; }
+}
