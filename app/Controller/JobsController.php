@@ -39,12 +39,12 @@ class JobsController extends AppController
         if ($queue && in_array($queue, $queues, true)) {
             $conditions['Job.worker'] = $queue;
         }
-        // Filter on the stored status MISP writes as the job progresses (the
-        // badge shows the live Redis status, which a finished or orphaned
-        // job no longer has).
+        // Filter on the stored Job.status. Jobs are created with 0 and only
+        // ever get 3 (failed) or 4 (completed) written back; waiting/running
+        // exist only in Redis. So "unfinished" (anything not 3/4) covers
+        // queued, running and stalled/orphaned jobs alike.
         $statuses = [
-            'waiting' => Job::STATUS_WAITING,
-            'running' => Job::STATUS_RUNNING,
+            'unfinished' => [0, Job::STATUS_WAITING, Job::STATUS_RUNNING],
             'failed' => Job::STATUS_FAILED,
             'completed' => Job::STATUS_COMPLETED,
         ];

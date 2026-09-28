@@ -246,10 +246,9 @@ $scaffoldFilterBar = [
                     'name' => 'status',
                     'label' => __('Status'),
                     'options' => [
-                        ''          => __('All statuses'),
-                        'waiting'   => __('Waiting'),
-                        'running'   => __('Running'),
-                        'failed'    => __('Failed'),
+                        ''           => __('All statuses'),
+                        'unfinished' => __('Not finished (queued, running or stalled)'),
+                        'failed'     => __('Failed'),
                         'completed' => __('Completed'),
                     ],
                 ],
