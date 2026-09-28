@@ -102,33 +102,112 @@ $renderItems = function (array $items) use (&$renderItems, $renderLink, $contain
     return $out;
 };
 
-// Mockup IA: Overview, then Investigate / Knowledge / Exchange / Automate
-// as always-open sections; the rest collapse unless they hold the page.
-$sectionLabels = [
-    'datapoints' => __('Investigate'),
-    'datamodels' => __('Knowledge'),
-    'sync' => __('Exchange'),
-    'api' => __('Automate'),
-    'administration' => __('Administration'),
-    'logs' => __('Logs'),
-    'resources' => __('Resources'),
+// Mockup IA: flat, icon-less sections of curated links. An entry only
+// shows when NavbarHelper kept a link to that path, so ACL filtering is
+// inherited; Overview (the dashboard) is open to every user. Every link
+// not curated here stays reachable under "More".
+$sections = [
+    '' => [['overview', __('Overview'), '/dashboards']],
+    __('Investigate') => [
+        ['events', __('Events'), '/events/index'],
+        [null, __('Attributes'), '/attributes/index'],
+        [null, __('Correlations'), '/correlations/top'],
+        [null, __('Proposals'), '/shadow_attributes/index'],
+    ],
+    __('Knowledge') => [
+        [null, __('Galaxies'), '/galaxies/index'],
+        [null, __('Taxonomies'), '/taxonomies/index'],
+        [null, __('Warninglists'), '/warninglists/index'],
+        [null, __('Decaying models'), '/decayingModel/index'],
+    ],
+    __('Exchange') => [
+        ['feeds', __('Feeds'), '/feeds/index'],
+        ['servers', __('Sync servers'), '/servers/index'],
+        [null, __('Sharing groups'), '/SharingGroups/index'],
+        [null, __('Organisations'), '/organisations/index'],
+    ],
+    __('Automate') => [
+        [null, __('Workflows'), '/workflows/index'],
+        [null, __('REST client'), '/api/rest'],
+    ],
 ];
-$primary = ['datapoints', 'datamodels', 'sync', 'api'];
-
-// The dashboard link moves out of "Data points" to the top as Overview.
-$overview = null;
-foreach ($menus['left'] as &$root) {
-    if (($root['id'] ?? null) !== 'datapoints') {
-        continue;
-    }
-    foreach ($root['children'] as $k => $child) {
-        if ($pathOf($child['url'] ?? null) !== '' && substr($pathOf($child['url']), -11) === '/dashboards') {
-            $overview = $child;
-            unset($root['children'][$k]);
+$linkByPath = [];
+foreach ($links as $link) {
+    $linkByPath[strtolower(substr($pathOf($link['url']), strlen(rtrim((string)parse_url($baseurl, PHP_URL_PATH), '/'))))] = $link;
+}
+$curatedUrls = [];
+foreach ($sections as $label => $entries) {
+    foreach ($entries as $k => $entry) {
+        $link = $linkByPath[strtolower($entry[2])] ?? null;
+        if ($link === null && $entry[0] === 'overview') {
+            $link = ['url' => $baseurl . '/dashboards'];
         }
+        if ($link === null) {
+            unset($sections[$label][$k]);
+            continue;
+        }
+        $sections[$label][$k] = ['count' => $entry[0], 'label' => $entry[1], 'url' => $link['url']];
+        $curatedUrls[$link['url']] = true;
     }
 }
-unset($root);
+if ($activeUrl === null && strtolower($currentController) === 'dashboards') {
+    $activeUrl = $sections[''][0]['url'] ?? null;
+}
+
+// The rest of the menu, minus curated links, for "More".
+$prune = function (array $items) use (&$prune, $curatedUrls) {
+    $out = [];
+    foreach ($items as $item) {
+        if (!empty($item['url']) && isset($curatedUrls[$item['url']])) {
+            continue;
+        }
+        if (!empty($item['children'])) {
+            $item['children'] = $prune($item['children']);
+            if (empty($item['children'])) {
+                continue;
+            }
+        }
+        $out[] = $item;
+    }
+    return $out;
+};
+$more = [];
+foreach ($menus['left'] as $root) {
+    $children = $prune($root['children'] ?? []);
+    if (array_filter($children, function ($c) { return empty($c['divider']); })) {
+        $more[] = ['label' => $root['label'] ?? '', 'id' => $root['id'] ?? '', 'children' => $children];
+    }
+}
+
+// Counts (Events, Feeds, Sync servers), cached in the session for 5 min so
+// the rail costs no queries on most page loads.
+$counts = CakeSession::read('FiRail.counts');
+if (!is_array($counts) || ($counts['at'] ?? 0) < time() - 300) {
+    $counts = ['at' => time()];
+    try {
+        $Event = ClassRegistry::init('Event');
+        $conditions = empty($me['Role']['perm_site_admin']) ? $Event->createEventConditions($me) : [];
+        $counts['events'] = (int)$Event->find('count', ['conditions' => $conditions, 'recursive' => -1]);
+        if (!empty($curatedUrls[$linkByPath['/feeds/index']['url'] ?? ''])) {
+            $counts['feeds'] = (int)ClassRegistry::init('Feed')->find('count', ['conditions' => ['Feed.enabled' => 1], 'recursive' => -1]);
+        }
+        if (!empty($curatedUrls[$linkByPath['/servers/index']['url'] ?? ''])) {
+            $counts['servers'] = (int)ClassRegistry::init('Server')->find('count', ['recursive' => -1]);
+        }
+    } catch (Throwable $e) {
+        // Counts are decoration; never let them break navigation.
+    }
+    CakeSession::write('FiRail.counts', $counts);
+}
+$countOf = function ($key) use ($counts) {
+    return ($key !== null && isset($counts[$key])) ? number_format($counts[$key]) : '';
+};
+$renderFlat = function (array $item) use ($activeUrl, $countOf) {
+    $active = $activeUrl !== null && $item['url'] === $activeUrl;
+    return '<a class="mfi-link' . ($active ? ' active' : '') . '" href="' . h($item['url']) . '"'
+        . ($active ? ' aria-current="page"' : '') . '><span>' . h($item['label']) . '</span>'
+        . '<span class="mfi-count">' . h($countOf($item['count'])) . '</span></a>';
+};
 
 $bookmarksMenu = null;
 $accountMenu = null;
@@ -156,27 +235,27 @@ $roleName = $me['Role']['name'] ?? '';
     </form>
 
     <nav class="mfi-nav">
-        <?php if ($overview): ?>
-            <div class="mfi-section"><?= $renderLink(['label' => __('Overview')] + $overview) ?></div>
-        <?php endif; ?>
-        <?php foreach ($menus['left'] as $root): ?>
-            <?php
-                $id = $root['id'] ?? '';
-                $label = $sectionLabels[$id] ?? ($root['label'] ?? '');
-                $tour = $id === '' ? '' : ' data-tour="nav-' . h($id) . '"';
-            ?>
-            <?php if (in_array($id, $primary, true)): ?>
-                <div class="mfi-section"<?= $tour ?>>
-                    <div class="mfi-section-label"><?= h($label) ?></div>
-                    <?= $renderItems($root['children'] ?? []) ?>
-                </div>
-            <?php else: ?>
-                <details class="mfi-section mfi-section-collapsible"<?= $tour ?><?= $containsActive($root) ? ' open' : '' ?>>
-                    <summary class="mfi-section-label"><?= h($label) ?><i class="fas fa-chevron-down mfi-chevron" aria-hidden="true"></i></summary>
-                    <?= $renderItems($root['children'] ?? []) ?>
-                </details>
-            <?php endif; ?>
+        <?php foreach ($sections as $label => $entries): ?>
+            <?php if (empty($entries)) continue; ?>
+            <div class="mfi-section">
+                <?php if ($label !== ''): ?><div class="mfi-section-label"><?= h($label) ?></div><?php endif; ?>
+                <?php foreach ($entries as $entry): ?>
+                    <?= $renderFlat($entry) ?>
+                <?php endforeach; ?>
+            </div>
         <?php endforeach; ?>
+        <?php if ($more): ?>
+            <?php $moreOpen = $activeUrl !== null && !isset($curatedUrls[$activeUrl]); ?>
+            <details class="mfi-section mfi-section-collapsible mfi-more"<?= $moreOpen ? ' open' : '' ?>>
+                <summary class="mfi-section-label"><?= __('More') ?><i class="fas fa-chevron-down mfi-chevron" aria-hidden="true"></i></summary>
+                <?php foreach ($more as $group): ?>
+                    <details class="mfi-sub"<?= $containsActive($group) ? ' open' : '' ?><?= $group['id'] === '' ? '' : ' data-tour="nav-' . h($group['id']) . '"' ?>>
+                        <summary class="mfi-link"><span><?= h($group['label']) ?></span><i class="fas fa-chevron-down mfi-chevron" aria-hidden="true"></i></summary>
+                        <div class="mfi-sub-items"><?= $renderItems($group['children']) ?></div>
+                    </details>
+                <?php endforeach; ?>
+            </details>
+        <?php endif; ?>
     </nav>
 
     <?php if ($accountMenu): ?>
