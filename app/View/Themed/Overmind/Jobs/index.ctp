@@ -241,6 +241,18 @@ $scaffoldFilterBar = [
                         'update'  => __('Update'),
                     ],
                 ],
+                [
+                    'type' => 'dropdown',
+                    'name' => 'status',
+                    'label' => __('Status'),
+                    'options' => [
+                        ''          => __('All statuses'),
+                        'waiting'   => __('Waiting'),
+                        'running'   => __('Running'),
+                        'failed'    => __('Failed'),
+                        'completed' => __('Completed'),
+                    ],
+                ],
             ],
         ],
     ],

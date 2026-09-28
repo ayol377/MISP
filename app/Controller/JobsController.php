@@ -39,6 +39,19 @@ class JobsController extends AppController
         if ($queue && in_array($queue, $queues, true)) {
             $conditions['Job.worker'] = $queue;
         }
+        // Filter on the stored status MISP writes as the job progresses (the
+        // badge shows the live Redis status, which a finished or orphaned
+        // job no longer has).
+        $statuses = [
+            'waiting' => Job::STATUS_WAITING,
+            'running' => Job::STATUS_RUNNING,
+            'failed' => Job::STATUS_FAILED,
+            'completed' => Job::STATUS_COMPLETED,
+        ];
+        $status = $this->passedArgs['status'] ?? null;
+        if (is_string($status) && isset($statuses[$status])) {
+            $conditions['Job.status'] = $statuses[$status];
+        }
         // Enrich every row with its live status (Redis / BackgroundJobsTool) and
         // the worker health — the same post-processing the legacy index did, now
         // hung off CRUD->index's afterFind hook.
