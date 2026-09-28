@@ -95,7 +95,6 @@ details:not([open]) > summary .mfi-chevron { transform: rotate(-90deg); }
 
 /* Legacy (Bootstrap 2) pages: the fixed top navbar is gone */
 body.mfi-legacy .navbar-fixed-top { position: static; }
-body.mfi-legacy .mfi-col > .main-wrapper { overflow-x: auto; }
 
 @media (max-width: 900px) {
     body.mfi-shell .mfi-app { grid-template-columns: 1fr; }
