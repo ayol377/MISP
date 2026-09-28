@@ -1,14 +1,22 @@
 <?php
 /*
- * OvermindFi events index (mockup 1c): facet column, toolbar, dense table.
+ * OvermindFi events index (mockup 1c): facet column, one search box, compact
+ * filter chips, dense table. Own markup; the engines are upstream's:
  *
- * Built on Themed/Overmind/Events/index.ctp and Elements/Events/index.ctp.
- * The filter bar (search, My/Org events, More filters, mass actions), the
- * card view and the pagination are the upstream elements; only the table
- * is drawn here. Everything the filter-draft engine swaps after an ajax
- * apply lives inside #index-results, the facets reload themselves from
- * events/facetCounts (js/fi/events-index.js).
+ *  - search box + "More filters" panel -> initScaffoldFilterDraft()
+ *    (mispOvermind.js), wired in js/fi/events-index.js with the config
+ *    upstream's filter_bar.ctp would pass; the panel is upstream's
+ *    filter_panel element.
+ *  - mass select -> .item-checkbox / #select_all / #multiSelectToolbar,
+ *    read by mispOvermind.js (updateMultiSelectToolbar, multiSelectItems).
+ *  - facets -> events/facetCounts (js/fi/events-index.js).
+ *
+ * Everything an ajax apply replaces lives in #index-results, plus the two
+ * nodes listed in the draft's `swap` (.fi-ev-chips, .fi-ev-range).
+ * No card view: narrow screens get a stacked row layout from the CSS.
  */
+App::uses('IndexFilterDraft', 'Tools');
+
 $this->set('hideHeaderSection', true);
 $this->set('additionalJs', ['fi/events-index']);
 
@@ -19,512 +27,392 @@ $canPickTemplate = (
 );
 $canAdd = $this->Acl->canAccess('events', 'add');
 $canExport = $this->Acl->canAccess('events', 'export');
+$canPickColumns = $this->Acl->canAccess('userSettings', 'eventIndexColumnToggle');
 if ($canPickTemplate) {
     echo $this->element('eventTemplates/templatePickerModal');
 }
 
 $columns = $columns ?? [];
-$showTags = in_array('tags', $columns, true);
-$showClusters = in_array('clusters', $columns, true);
-$showAttr = in_array('attribute_count', $columns, true);
-$showCorr = in_array('correlations', $columns, true);
-
+$show = [
+    'tags' => in_array('tags', $columns, true),
+    'clusters' => in_array('clusters', $columns, true),
+    'attr' => in_array('attribute_count', $columns, true),
+    'corr' => in_array('correlations', $columns, true),
+];
 $viewUrl = $baseurl . '/events/view2/%id%';
 
-$checkboxField = [
-    'element' => 'checkbox',
-    'data_path' => 'Event.id',
-    'publish_path' => 'Event.published',
-];
-$actionsField = [
-    'name' => __('Actions'),
-    'element' => 'row_actions',
-    'data_path' => 'Event.id',
-    'publish_path' => 'Event.published',
-    'card_section' => 'extra',
-    'display_in' => ['table', 'card'],
-    'actions' => [
-        [
-            'type' => 'navigate',
-            'label' => __('View'),
-            'icon' => 'eye',
-            'url' => $viewUrl,
-        ],
-        [
-            'type' => 'modal',
-            'label' => __('Edit'),
-            'icon' => 'pen-to-square',
-            'url' => $baseurl . '/events/edit/%id%',
-            'requirement' => 'check_edit_rights',
-        ],
-        [
-            'type' => 'modal',
-            'label' => __('Delete'),
-            'icon' => 'trash',
-            'url' => $baseurl . '/events/delete/%id%',
-            'class' => 'text-danger',
-            'requirement' => 'check_edit_rights',
-        ],
-        [
-            'type' => 'divider',
-            'url' => '#',
-            'requirement' => 'check_publish_rights',
-        ],
-        [
-            'type' => 'toggle',
-            'label_on' => __('Unpublish'),
-            'label_off' => __('Publish'),
-            'icon_on' => 'eye-slash',
-            'icon_off' => 'upload',
-            'url' => $baseurl . '/events/%action%/%id%',
-            'publish_path' => 'Event.published',
-            'requirement' => 'check_publish_rights',
-        ],
-    ],
-];
-
-// Card view (the upstream one, forced on narrow screens): same fields as
-// Overmind's Elements/Events/index.ctp.
-$cardFields = [
-    $checkboxField + ['card_section' => 'selector'],
-    ['name' => __('ID'), 'sort' => 'Event.id', 'data_path' => 'Event.id', 'element' => 'id', 'url' => $viewUrl, 'card_section' => 'top', 'display_in' => ['card']],
-    ['name' => __('Distribution'), 'data_path' => 'Event.distribution', 'element' => 'distribution', 'card_section' => 'top', 'display_in' => ['card']],
-    ['name' => __('Info'), 'data_path' => 'Event', 'element' => 'event_info', 'card_section' => 'title', 'display_in' => ['card']],
-    ['name' => __('Published'), 'sort' => 'Event.published', 'data_path' => 'Event.published', 'element' => 'published', 'card_section' => 'top', 'display_in' => ['card']],
-    ['name' => __('Creator Org'), 'sort' => 'Orgc.name', 'data_path' => 'Orgc', 'element' => 'organisation', 'card_section' => 'meta', 'display_in' => ['card']],
-    ['name' => __('Owner Org'), 'sort' => 'Org.name', 'data_path' => 'Org', 'element' => 'organisation', 'card_section' => 'meta', 'display_in' => ['card']],
-    ['name' => __('Tags'), 'data_path' => 'EventTag', 'element' => 'tag_list', 'card_section' => 'tag', 'display_in' => ['card']],
-    ['name' => __('Galaxy'), 'data_path' => 'GalaxyCluster', 'element' => 'galaxy', 'card_section' => 'galaxy', 'display_in' => ['card']],
-    ['name' => __('Created'), 'data_path' => 'Event.date', 'element' => 'datetime', 'mode' => 'created', 'card_section' => 'meta', 'display_in' => ['card']],
-    ['name' => __('Last Modified'), 'data_path' => 'Event.timestamp', 'element' => 'datetime', 'mode' => 'modified', 'card_section' => 'meta', 'display_in' => ['card']],
-    ['name' => __('Contents'), 'data_path' => 'Event', 'element' => 'event_contents', 'card_section' => 'meta', 'display_in' => ['card']],
-    $actionsField,
-];
-
-$children = [
-    [
-        'type' => 'search',
-        'button' => 'Search',
-        'placeholder' => __('Search by info, ID or UUID'),
-        'name' => 'eventinfo',
-        'mode' => 'event',
-        'id_field' => 'eventid',
-    ],
-    [
-        'type' => 'button',
-        'label' => __('My events'),
-        'icon' => 'misp-icon misp-icon-user1 misp-simple',
-        'class' => 'btn btn-outline-secondary',
-        'url' => $baseurl . '/events/index/searchemail:' . urlencode($me['email']),
-    ],
-    [
-        'type' => 'button',
-        'label' => __('Org events'),
-        'icon' => 'misp-icon misp-icon-organisation misp-simple',
-        'class' => 'btn btn-outline-secondary',
-        'url' => $baseurl . '/events/index/searchorg:' . urlencode($me['org_id']),
-    ],
-    [
-        'type' => 'more_filters',
-        'label' => __('More filters'),
-        'children' => [
-            [
-                'type' => 'dropdown',
-                'label' => __('Distribution'),
-                'name' => 'distribution',
-                'options' => [
-                    '' => '',
-                    '0' => 'Your organisation only',
-                    '1' => 'Community',
-                    '2' => 'Connected communities',
-                    '3' => 'All communities',
-                ],
-            ],
-            [
-                'type' => 'dropdown',
-                'label' => __('Published'),
-                'name' => 'published',
-                'options' => ['' => '', '1' => 'Published', '0' => 'Not published'],
-            ],
-            ['type' => 'dropdown', 'label' => __('Creator Org'), 'name' => 'org', 'options' => $orgOptions],
-            ['type' => 'dropdown', 'label' => __('Tags'), 'name' => 'tag', 'options' => $tagOptions],
-            ['type' => 'dropdown', 'label' => __('Galaxy'), 'name' => 'galaxy', 'options' => $galaxyOptions],
-        ],
-    ],
-];
-
-$scaffoldData = [
-    'data' => $events,
-    'cards_per_row' => ['' => 1, 'lg' => 2, 'xxxxl' => 3],
-    'filter_bar' => [
-        'pull' => 'right',
-        'children' => $children,
-        'export' => 1,
-        'delete' => '/delete',
-    ],
-    'fields' => $cardFields,
-    'primary_id_path' => 'Event.id',
-    'row_dblclick_url' => $viewUrl,
-];
-
-/* ── active-filter chips and range caption ─────────────────────────── */
-$named = $this->request->params['named'] ?? [];
-$chipLabels = [
-    'all' => __('Search'),
-    'eventinfo' => __('Info'),
-    'eventid' => __('ID'),
-    'threatlevel' => __('Threat'),
-    'tag' => __('Tag'),
-    'tags' => __('Tag'),
-    'org' => __('Creator org'),
-    'published' => __('State'),
-    'hasproposal' => __('Proposals'),
-    'distribution' => __('Distribution'),
-    'analysis' => __('Analysis'),
-    'email' => __('Creator'),
-    'galaxy' => __('Galaxy'),
-    'datefrom' => __('From'),
-    'dateuntil' => __('Until'),
-    'attribute' => __('Attribute'),
-    'value' => __('Value'),
-];
-$threatNames = [1 => __('High'), 2 => __('Medium'), 3 => __('Low'), 4 => __('Undefined')];
-$chipValue = function ($key, $value) use ($threatNames, $distributionLevels) {
-    $map = [];
-    if ($key === 'threatlevel') {
-        $map = $threatNames;
-    } elseif ($key === 'published') {
-        $map = ['0' => __('Draft'), '1' => __('Published'), '2' => __('Any')];
-    } elseif ($key === 'hasproposal') {
-        $map = ['0' => __('None'), '1' => __('Has proposals'), '2' => __('Any')];
-    } elseif ($key === 'distribution') {
-        $map = $distributionLevels ?? [];
-    }
-    $out = [];
-    foreach (explode('|', (string)$value) as $piece) {
-        $not = strpos($piece, '!') === 0;
-        $bare = $not ? substr($piece, 1) : $piece;
-        $out[] = ($not ? '!' : '') . ($map[$bare] ?? $bare);
-    }
-    return implode(' | ', $out);
+/* ── the URL state ─────────────────────────────────────────────────────
+ * Named args, keyed lower-case (the controller reads them that way).
+ * $urlWith() is events/index with some filters set/dropped and the rest
+ * (sort included) kept; a new filter always goes back to page 1. */
+$named = [];
+foreach (($this->request->params['named'] ?? []) as $key => $value) {
+    $named[strtolower($key)] = $value;
+}
+$get = function ($key) use ($named) {
+    $value = $named[$key] ?? null;
+    return is_array($value) ? implode('|', $value) : $value;
 };
-$chips = [];
-foreach ($named as $rawKey => $value) {
-    if (is_array($value) || (string)$value === '' || stripos($rawKey, 'search') !== 0) {
-        continue;
+$urlWith = function (array $set) use ($named) {
+    $args = $named;
+    unset($args['page']);
+    foreach ($set as $key => $value) {
+        if ($value === null || $value === '') {
+            unset($args[$key]);
+        } else {
+            $args[$key] = $value;
+        }
     }
-    $key = strtolower(substr($rawKey, 6));
-    $remaining = $named;
-    unset($remaining[$rawKey], $remaining['page']);
-    $chips[] = [
-        'label' => $chipLabels[$key] ?? ucfirst(str_replace('_', ' ', $key)),
-        'value' => $chipValue($key, $value),
-        'remove' => $this->Html->url(
-            ['controller' => 'events', 'action' => 'index'] + $remaining
-        ),
+    return $this->Html->url(['controller' => 'events', 'action' => 'index'] + $args);
+};
+$pieces = function ($value) {
+    return $value === null || $value === '' ? [] : explode('|', (string)$value);
+};
+
+/* ── filter chips ──────────────────────────────────────────────────── */
+$chips = [];
+
+// TLP: the tlp:* part of searchtag, any other tags in it are kept.
+$tagPieces = $pieces($get('searchtag'));
+$tlpOn = array_values(array_filter($tagPieces, function ($p) {
+    return stripos($p, 'tlp:') === 0;
+}));
+$otherTags = array_values(array_diff($tagPieces, $tlpOn));
+$tlpOptions = [[
+    'label' => __('Any'),
+    'url' => $urlWith(['searchtag' => implode('|', $otherTags)]),
+    'active' => !$tlpOn,
+]];
+foreach (['red', 'amber+strict', 'amber', 'green', 'clear', 'white'] as $level) {
+    $tlpOptions[] = [
+        'label' => $level,
+        'url' => $urlWith(['searchtag' => implode('|', array_merge($otherTags, ['tlp:' . $level]))]),
+        'active' => in_array('tlp:' . $level, array_map('strtolower', $tlpOn), true),
     ];
 }
+$chips[] = [
+    'label' => __('TLP'),
+    'value' => $tlpOn ? implode(', ', array_map(function ($p) {
+        return substr($p, 4);
+    }, $tlpOn)) : __('Any'),
+    'set' => (bool)$tlpOn,
+    'options' => $tlpOptions,
+];
 
+// Threat level; the facet column does multi-select, this picks one.
+$threatNames = [1 => __('High'), 2 => __('Medium'), 3 => __('Low'), 4 => __('Undefined')];
+$threatOn = $pieces($get('searchthreatlevel'));
+$threatOptions = [['label' => __('Any'), 'url' => $urlWith(['searchthreatlevel' => null]), 'active' => !$threatOn]];
+foreach ($threatNames as $threatId => $name) {
+    $threatOptions[] = [
+        'label' => $name,
+        'url' => $urlWith(['searchthreatlevel' => (string)$threatId]),
+        'active' => $threatOn === [(string)$threatId],
+    ];
+}
+$chips[] = [
+    'label' => __('Threat'),
+    'value' => $threatOn ? implode(', ', array_map(function ($p) use ($threatNames) {
+        $not = strpos($p, '!') === 0;
+        $bare = ltrim($p, '!');
+        return ($not ? '!' : '') . ($threatNames[(int)$bare] ?? $bare);
+    }, $threatOn)) : __('Any'),
+    'set' => (bool)$threatOn,
+    'options' => $threatOptions,
+];
+
+// Period: presets on the event date, plus a custom range.
+$dateFrom = (string)$get('searchdatefrom');
+$dateUntil = (string)$get('searchdateuntil');
+$periodValue = __('Any time');
+$periodOptions = [[
+    'label' => __('Any time'),
+    'url' => $urlWith(['searchdatefrom' => null, 'searchdateuntil' => null]),
+    'active' => $dateFrom === '' && $dateUntil === '',
+]];
+$presets = [
+    '-7 days' => __('Last 7 days'),
+    '-30 days' => __('Last 30 days'),
+    '-90 days' => __('Last 90 days'),
+    '-1 year' => __('Last 12 months'),
+];
+foreach ($presets as $delta => $label) {
+    $from = date('Y-m-d', strtotime($delta));
+    $active = $dateFrom === $from && $dateUntil === '';
+    if ($active) {
+        $periodValue = $label;
+    }
+    $periodOptions[] = [
+        'label' => $label,
+        'url' => $urlWith(['searchdatefrom' => $from, 'searchdateuntil' => null]),
+        'active' => $active,
+    ];
+}
+if (($dateFrom !== '' || $dateUntil !== '') && $periodValue === __('Any time')) {
+    $periodValue = $dateUntil === ''
+        ? __('Since %s', $dateFrom)
+        : ($dateFrom === '' ? __('Until %s', $dateUntil) : $dateFrom . ' – ' . $dateUntil);
+}
+$chips[] = [
+    'label' => __('Period'),
+    'value' => $periodValue,
+    'set' => $dateFrom !== '' || $dateUntil !== '',
+    'options' => $periodOptions,
+    'range' => ['from' => $dateFrom, 'until' => $dateUntil],
+];
+
+// Scope: upstream's "My events" / "Org events" buttons.
+$mine = ($get('searchemail') !== null && strcasecmp($get('searchemail'), $me['email']) === 0);
+$ours = ((string)$get('searchorg') === (string)$me['org_id']);
+$chips[] = [
+    'label' => __('Scope'),
+    'value' => $mine ? __('My events') : ($ours ? __('Org events') : __('All')),
+    'set' => $mine || $ours,
+    'options' => [
+        [
+            'label' => __('All'),
+            'url' => $urlWith(['searchemail' => null, 'searchorg' => $ours ? null : $get('searchorg')]),
+            'active' => !$mine && !$ours,
+        ],
+        ['label' => __('My events'), 'url' => $urlWith(['searchemail' => $me['email']]), 'active' => $mine],
+        ['label' => __('Org events'), 'url' => $urlWith(['searchorg' => (string)$me['org_id']]), 'active' => $ours],
+    ],
+];
+
+/* ── "More filters": upstream's advanced controls, same keys ────────── */
+$searchTerm = $get('searcheventinfo') ?? $get('searcheventid') ?? '';
+$panelFields = [
+    ['name' => 'distribution', 'label' => __('Distribution'), 'options' => [
+        '' => '',
+        '0' => 'Your organisation only',
+        '1' => 'Community',
+        '2' => 'Connected communities',
+        '3' => 'All communities',
+    ]],
+    ['name' => 'published', 'label' => __('Published'), 'options' => [
+        '' => '', '1' => 'Published', '0' => 'Not published',
+    ]],
+    ['name' => 'org', 'label' => __('Creator Org'), 'options' => $orgOptions],
+    ['name' => 'tag', 'label' => __('Tags'), 'options' => $tagOptions],
+    ['name' => 'galaxy', 'label' => __('Galaxy'), 'options' => $galaxyOptions],
+];
+foreach ($panelFields as $i => $field) {
+    $panelFields[$i] += [
+        'type' => 'select',
+        'value' => (string)$get('search' . $field['name']),
+        'col' => 4,
+    ];
+}
+$advId = 'fiEvMoreFilters';
+$draftConfig = [
+    'advId' => $advId,
+    'base' => $baseurl . '/events/index',
+    'itemPath' => '/events/index',
+    'mode' => 'event',
+    'transport' => 'path',
+    'searchField' => 'eventinfo',
+    'idField' => 'eventid',
+    'ownedKeys' => array_merge(
+        ['eventinfo', 'eventid'],
+        array_column($panelFields, 'name'),
+        ['sort', 'direction', 'page', 'limit']
+    ),
+    'results' => '#index-results',
+    'swap' => ['.fi-ev-chips', '.fi-ev-range'],
+];
+// Upstream's badge: everything that filters, search and scope included.
+$activeTotal = count(array_filter($named, function ($v, $k) {
+    return strpos($k, 'search') === 0 && $v !== '' && $v !== null;
+}, ARRAY_FILTER_USE_BOTH));
+
+/* ── range caption ─────────────────────────────────────────────────── */
 $paging = $this->Paginator->params();
 $total = (int)($paging['count'] ?? 0);
 $first = $total ? ((int)$paging['page'] - 1) * (int)$paging['limit'] + 1 : 0;
 $last = $total ? $first + (int)$paging['current'] - 1 : 0;
+$range = sprintf('%s–%s of %s', number_format($first), number_format($last), number_format($total));
 
-/* ── row helpers ───────────────────────────────────────────────────── */
-$threatKinds = [1 => 'high', 2 => 'medium', 3 => 'low', 4 => 'undefined'];
-$threatIcons = [
-    1 => 'circle-exclamation',
-    2 => 'triangle-exclamation',
-    3 => 'circle-down',
-    4 => 'circle-question',
-];
-$initials = function ($name) {
-    $words = preg_split('/[\s\-_]+/u', trim((string)$name), -1, PREG_SPLIT_NO_EMPTY);
-    $out = '';
-    foreach (array_slice($words, 0, 2) as $word) {
-        $out .= mb_substr($word, 0, 1);
-    }
-    return mb_strtoupper($out);
-};
+/* ── table helpers ─────────────────────────────────────────────────── */
 $sortHeader = function ($field, $label) {
-    return $this->Paginator->sort(
-        $field,
-        '<span class="sortable-header">' . h($label) . '<i class="sort-icon"></i></span>',
-        ['escape' => false]
-    );
+    return $this->Paginator->sort($field, h($label), ['escape' => false]);
 };
-$maxTags = 4;
+$columnNames = [
+    'tags' => __('Tags'),
+    'clusters' => __('Galaxy clusters'),
+    'attribute_count' => __('Attribute count'),
+    'correlations' => __('Correlations'),
+    'proposals' => __('Proposals'),
+];
+$columnChoices = array_intersect_key($columnNames, array_flip($possibleColumns ?? []));
 ?>
 
 <div class="fi-ev" id="fiEventsIndex"
      data-index-url="<?= h($baseurl . '/events/index') ?>"
      data-item-path="/events/index"
-     data-facet-url="<?= h($baseurl . '/events/facetCounts') ?>">
+     data-facet-url="<?= h($baseurl . '/events/facetCounts') ?>"
+     data-column-url="<?= h($baseurl . '/userSettings/eventIndexColumnToggle/') ?>">
+    <script type="application/json" id="fiEvDraftConfig"><?= json_encode(
+        $draftConfig + ['strings' => IndexFilterDraft::strings()],
+        JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE
+    ) ?></script>
 
     <aside class="fi-ev-facets" aria-label="<?= __('Filters') ?>">
-        <div class="fi-ev-title">
-            <h1><?= __('Events') ?></h1>
-            <span class="fi-mono fi-ev-total" id="headerCountBadge"><?= h(number_format($total)) ?></span>
-        </div>
+        <h1 class="fi-ev-title"><?= __('Events') ?></h1>
         <div class="fi-ev-facet-groups" aria-busy="true">
-            <div class="fi-ev-facet-loading fi-faint"><?= __('Loading filters…') ?></div>
+            <div class="fi-ev-facet-loading"><?= __('Loading filters…') ?></div>
         </div>
     </aside>
 
     <div class="fi-ev-main">
 
         <div class="fi-ev-toolbar">
-            <div class="fi-ev-filterbar">
-                <?= $this->element('genericElementsBS5/IndexTable/filter_bar', [
-                    'scaffold_data' => $scaffoldData,
-                    'item_url' => '/events',
-                ]) ?>
-            </div>
-            <div class="fi-ev-actions">
-                <?php if ($canImport): ?>
-                    <a class="btn btn-ghost" href="<?= h($baseurl . '/events/importEvent') ?>"
-                       onclick="event.preventDefault(); openModal('<?= h($baseurl . '/events/importEvent') ?>');">
-                        <i class="fas fa-file-import"></i><?= __('Import') ?>
-                    </a>
-                <?php endif; ?>
-                <?php if ($canExport): ?>
-                    <a class="btn btn-ghost" href="<?= h($baseurl . '/events/export') ?>">
-                        <i class="fas fa-file-export"></i><?= __('Export') ?>
-                    </a>
-                <?php endif; ?>
-                <?php if ($canAdd || $canPickTemplate): ?>
-                    <div class="btn-group">
-                        <?php if ($canAdd): ?>
-                            <a class="btn btn-primary" id="add-event-button"
-                               href="<?= h($baseurl . '/events/add') ?>"
-                               onclick="event.preventDefault(); openModal('<?= h($baseurl . '/events/add') ?>');">
-                                <i class="fas fa-plus"></i><?= __('New event') ?>
-                            </a>
-                        <?php endif; ?>
-                        <?php if ($canPickTemplate): ?>
-                            <?php if ($canAdd): ?>
-                                <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split"
-                                        data-bs-toggle="dropdown" aria-expanded="false"
-                                        aria-label="<?= __('More ways to create an event') ?>"></button>
-                                <ul class="dropdown-menu dropdown-menu-end">
-                                    <li>
-                                        <a class="dropdown-item" href="#" id="event-template-picker-button"
-                                           onclick="event.preventDefault(); openEventTemplatePicker();">
-                                            <i class="fas fa-wand-magic-sparkles me-2"></i><?= __('From template') ?>
-                                        </a>
-                                    </li>
-                                </ul>
-                            <?php else: ?>
-                                <a class="btn btn-primary" href="#" id="event-template-picker-button"
+            <label class="fi-ev-search">
+                <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
+                <span class="visually-hidden"><?= __('Search events') ?></span>
+                <input id="filterField" type="search" autocomplete="off"
+                       placeholder="<?= __('Search by info, ID or UUID') ?>"
+                       value="<?= h($searchTerm) ?>">
+            </label>
+            <?php if ($canImport): ?>
+                <a class="fi-ev-btn" href="<?= h($baseurl . '/events/importEvent') ?>"
+                   onclick="event.preventDefault(); openModal('<?= h($baseurl . '/events/importEvent') ?>');"><?= __('Import') ?></a>
+            <?php endif; ?>
+            <?php if ($canExport): ?>
+                <a class="fi-ev-btn" href="<?= h($baseurl . '/events/export') ?>"><?= __('Export') ?></a>
+            <?php endif; ?>
+            <?php if ($canAdd || $canPickTemplate): ?>
+                <div class="fi-ev-new">
+                    <?php if ($canAdd): ?>
+                        <a class="fi-ev-btn is-primary" id="add-event-button"
+                           href="<?= h($baseurl . '/events/add') ?>"
+                           onclick="event.preventDefault(); openModal('<?= h($baseurl . '/events/add') ?>');"><?= __('New event') ?></a>
+                    <?php endif; ?>
+                    <?php if ($canPickTemplate && $canAdd): ?>
+                        <button type="button" class="fi-ev-btn is-primary fi-ev-new-caret" data-bs-toggle="dropdown"
+                                aria-expanded="false" aria-label="<?= __('More ways to create an event') ?>">
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end fi-ev-menu">
+                            <li>
+                                <a class="dropdown-item" href="#" id="event-template-picker-button"
                                    onclick="event.preventDefault(); openEventTemplatePicker();">
                                     <i class="fas fa-wand-magic-sparkles"></i><?= __('From template') ?>
                                 </a>
-                            <?php endif; ?>
-                        <?php endif; ?>
-                    </div>
-                <?php endif; ?>
+                            </li>
+                        </ul>
+                    <?php elseif ($canPickTemplate): ?>
+                        <a class="fi-ev-btn is-primary" href="#" id="event-template-picker-button"
+                           onclick="event.preventDefault(); openEventTemplatePicker();"><?= __('From template') ?></a>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
+        </div>
+
+        <div class="fi-ev-filters">
+            <div class="fi-ev-chips">
+                <?php foreach ($chips as $chip): ?>
+                    <?= $this->element('fi/events_index/filter_chip', $chip) ?>
+                <?php endforeach; ?>
             </div>
+            <button type="button" class="fi-ev-more-filters" data-bs-toggle="collapse"
+                    data-bs-target="#<?= h($advId) ?>" aria-expanded="false" aria-controls="<?= h($advId) ?>">
+                <i class="fas fa-sliders" aria-hidden="true"></i><?= __('More filters') ?>
+                <span class="filter-draft-count<?= $activeTotal ? '' : ' d-none' ?>"><?= (int)$activeTotal ?></span>
+            </button>
+            <span class="fi-ev-range fi-mono"><?= h($range) ?></span>
+        </div>
+
+        <div class="fi-ev-more-panel">
+            <?= $this->element('genericElementsBS5/IndexTable/filter_panel', [
+                'id' => $advId,
+                'open' => false,
+                'fields' => $panelFields,
+                'input_class' => 'topbar-filter',
+            ]) ?>
+        </div>
+
+        <div id="multiSelectToolbar" class="fi-ev-selbar d-none" role="region" aria-label="<?= __('Selected events') ?>">
+            <span><span id="selectedCount">0</span> <?= __('selected') ?></span>
+            <button type="button" id="multi-export-button" class="fi-ev-btn"
+                    onclick="multiSelectItems('<?= h($baseurl . '/events/restSearchExport') ?>', '')">
+                <i class="fas fa-file-export"></i><?= __('Export') ?>
+            </button>
+            <button type="button" id="multi-delete-button" class="fi-ev-btn is-danger d-none"
+                    onclick="multiSelectItems('<?= h($baseurl . '/events/delete') ?>', '/true')">
+                <i class="fas fa-trash"></i><?= __('Delete') ?>
+            </button>
         </div>
 
         <div id="index-results" class="index-results">
-
-            <div class="fi-ev-meta">
-                <div class="fi-ev-chips">
-                    <?php foreach ($chips as $chip): ?>
-                        <span class="fi-ev-chip">
-                            <span class="fi-ev-chip-label"><?= h($chip['label']) ?></span>
-                            <span class="fi-ev-chip-value">
-                                <?= h($chip['value']) ?>
-                                <a href="<?= h($chip['remove']) ?>" class="fi-ev-chip-remove"
-                                   title="<?= __('Remove filter') ?>" aria-label="<?= __('Remove filter') ?>">
-                                    <i class="fas fa-xmark"></i>
-                                </a>
-                            </span>
-                        </span>
-                    <?php endforeach; ?>
-                    <?php if (count($chips) > 1): ?>
-                        <a class="fi-ev-chip-clear" href="<?= h($baseurl . '/events/index') ?>"><?= __('Clear all') ?></a>
-                    <?php endif; ?>
-                </div>
-                <span class="fi-mono fi-ev-range">
-                    <?= h(sprintf('%s–%s of %s', number_format($first), number_format($last), number_format($total))) ?>
-                </span>
+            <div class="fi-panel fi-ev-panel">
+                <?php if (empty($events)): ?>
+                    <div class="fi-ev-empty"><?= __('No events match these filters') ?></div>
+                <?php else: ?>
+                <table class="fi-ev-table" data-dblclick-url="<?= h($viewUrl) ?>">
+                    <thead>
+                        <tr>
+                            <th class="fi-ev-c-id">
+                                <input id="select_all" class="select_all form-check-input" type="checkbox"
+                                       onclick="toggleAllAttributeCheckboxes(this);"
+                                       aria-label="<?= __('Select all') ?>">
+                                <?= $sortHeader('Event.id', __('ID')) ?>
+                            </th>
+                            <th class="fi-ev-c-info"><?= $sortHeader('Event.info', __('Event')) ?></th>
+                            <th class="fi-ev-c-org"><?= $sortHeader('Orgc.name', __('Creator org')) ?></th>
+                            <th class="fi-ev-c-date"><?= $sortHeader('Event.date', __('Date')) ?></th>
+                            <th class="fi-ev-c-threat"><?= $sortHeader('Event.threat_level_id', __('Threat')) ?></th>
+                            <?php if ($show['attr']): ?>
+                                <th class="fi-ev-c-num"><?= $sortHeader('Event.attribute_count', __('Attr.')) ?></th>
+                            <?php endif; ?>
+                            <?php if ($show['corr']): ?>
+                                <th class="fi-ev-c-num"><?= __('Corr.') ?></th>
+                            <?php endif; ?>
+                            <th class="fi-ev-c-state">
+                                <?= $sortHeader('Event.published', __('State')) ?>
+                                <?php if ($canPickColumns && $columnChoices): ?>
+                                    <div class="dropdown fi-ev-act">
+                                        <button type="button" class="fi-ev-more" data-bs-toggle="dropdown"
+                                                aria-expanded="false" title="<?= __('Columns') ?>"
+                                                aria-label="<?= __('Choose columns') ?>">
+                                            <i class="fas fa-table-columns"></i>
+                                        </button>
+                                        <div class="dropdown-menu dropdown-menu-end fi-ev-menu">
+                                            <h6 class="dropdown-header"><?= __('Columns') ?></h6>
+                                            <?php foreach ($columnChoices as $column => $label):
+                                                $on = in_array($column, $columns, true); ?>
+                                                <button type="button" class="dropdown-item" data-fi-ev-column="<?= h($column) ?>"
+                                                        aria-pressed="<?= $on ? 'true' : 'false' ?>">
+                                                    <i class="fas fa-check<?= $on ? '' : ' invisible' ?>"></i><?= h($label) ?>
+                                                </button>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    </div>
+                                <?php endif; ?>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($events as $k => $event): ?>
+                            <?= $this->element('fi/events_index/row', [
+                                'event' => $event,
+                                'k' => $k,
+                                'viewUrl' => $viewUrl,
+                                'show' => $show,
+                            ]) ?>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+                <?php endif; ?>
             </div>
 
-            <div class="fi-panel fi-ev-panel">
-                <div id="tableView">
-                    <?php if (empty($events)): ?>
-                        <div class="fi-ev-empty fi-faint">
-                            <i class="fas fa-inbox"></i><?= __('No events match these filters') ?>
-                        </div>
-                    <?php else: ?>
-                    <div class="table-responsive">
-                    <table class="fi-ev-table" data-dblclick-url="<?= h($viewUrl) ?>">
-                        <thead class="checkbox-index">
-                            <tr>
-                                <th class="fi-ev-c-sel">
-                                    <input id="select_all" class="select_all form-check-input" type="checkbox"
-                                           onclick="toggleAllAttributeCheckboxes(this);"
-                                           aria-label="<?= __('Select all') ?>">
-                                </th>
-                                <th class="fi-ev-c-id pagination_link"><?= $sortHeader('Event.id', __('ID')) ?></th>
-                                <th class="fi-ev-c-info"><?= __('Event') ?></th>
-                                <th class="fi-ev-c-org pagination_link"><?= $sortHeader('Orgc.name', __('Creator org')) ?></th>
-                                <th class="fi-ev-c-date pagination_link"><?= $sortHeader('Event.date', __('Date')) ?></th>
-                                <th class="fi-ev-c-threat pagination_link"><?= $sortHeader('Event.threat_level_id', __('Threat')) ?></th>
-                                <?php if ($showAttr): ?>
-                                    <th class="fi-ev-c-num pagination_link"><?= $sortHeader('Event.attribute_count', __('Attr.')) ?></th>
-                                <?php endif; ?>
-                                <?php if ($showCorr): ?>
-                                    <th class="fi-ev-c-num"><?= __('Corr.') ?></th>
-                                <?php endif; ?>
-                                <th class="fi-ev-c-state pagination_link"><?= $sortHeader('Event.published', __('State')) ?></th>
-                                <th class="fi-ev-c-act"><span class="visually-hidden"><?= __('Actions') ?></span></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                        <?php foreach ($events as $k => $event):
-                            $e = $event['Event'];
-                            $id = (int)$e['id'];
-                            $rowUrl = str_replace('%id%', $id, $viewUrl);
-                            $threatId = (int)$e['threat_level_id'];
-                            $threatLabel = $event['ThreatLevel']['name'] ?? ($threatNames[$threatId] ?? '');
-                            $orgc = $event['Orgc'] ?? [];
-                            $logo = empty($orgc) ? '' : $this->OrgImg->getOrgLogoV2($orgc, 18, false);
-                            $tags = [];
-                            if ($showTags) {
-                                foreach (($event['EventTag'] ?? []) as $eventTag) {
-                                    if (!empty($eventTag['Tag']) && empty($eventTag['Tag']['is_galaxy'])) {
-                                        $tags[] = $eventTag;
-                                    }
-                                }
-                            }
-                            $clusters = $showClusters ? ($event['GalaxyCluster'] ?? []) : [];
-                            $corrCount = (int)($e['correlation_count'] ?? 0);
-                            $proposals = (int)($e['proposals_count'] ?? 0);
-                            $distribution = (int)$e['distribution'];
-                            $distLabel = ($distribution === 4 && !empty($event['SharingGroup']['name']))
-                                ? $event['SharingGroup']['name']
-                                : ($shortDist[$distribution] ?? '');
-                        ?>
-                            <tr data-row-id="<?= h($k) ?>" data-primary-id="<?= $id ?>">
-                                <td class="fi-ev-c-sel">
-                                    <?= $this->element('genericElementsBS5/IndexTable/Fields/checkbox', [
-                                        'field' => $checkboxField,
-                                        'row' => $event,
-                                    ]) ?>
-                                </td>
-                                <td class="fi-ev-c-id">
-                                    <a class="fi-mono" href="<?= h($rowUrl) ?>"><?= $id ?></a>
-                                </td>
-                                <td class="fi-ev-c-info">
-                                    <a class="fi-ev-info" href="<?= h($rowUrl) ?>" title="<?= h($e['info']) ?>"><?= h($e['info']) ?></a>
-                                    <?php if (!empty($e['extends_uuid'])):
-                                        $extended = $extendedEvents[$e['extends_uuid']] ?? null; ?>
-                                        <div class="fi-ev-extends fi-faint">
-                                            <?= __('Extends') ?>
-                                            <?php if ($extended): ?>
-                                                <a href="<?= h($baseurl . '/events/view2/' . $extended['id']) ?>"><?= h($extended['info']) ?></a>
-                                            <?php else: ?>
-                                                <span class="fi-mono"><?= h($e['extends_uuid']) ?></span>
-                                            <?php endif; ?>
-                                        </div>
-                                    <?php endif; ?>
-                                    <?php if ($tags || $clusters): ?>
-                                        <div class="fi-ev-tags tag-container">
-                                            <?php foreach ($tags as $i => $eventTag):
-                                                $tag = $eventTag['Tag'];
-                                                $colour = !empty($tag['colour']) ? $tag['colour'] : '#0088cc'; ?>
-                                                <a class="fi-tag<?= $i >= $maxTags ? ' d-none extra-tag' : '' ?>"
-                                                   href="<?= h($baseurl . '/events/index/searchtag:' . $tag['id']) ?>"
-                                                   title="<?= h($tag['name']) ?>"
-                                                   style="background-color:<?= h($colour) ?>;color:<?= h($this->TextColour->getTextColour($colour)) ?>;">
-                                                    <?php if (!empty($eventTag['local'])): ?><i class="fas fa-user"></i><?php endif; ?>
-                                                    <?= h($tag['name']) ?>
-                                                </a>
-                                            <?php endforeach; ?>
-                                            <?php if (count($tags) > $maxTags): ?>
-                                                <span class="fi-tag fi-tag-more" role="button" tabindex="0"
-                                                      onclick="toggleTags(this)">+<?= count($tags) - $maxTags ?></span>
-                                            <?php endif; ?>
-                                            <?php foreach ($clusters as $cluster):
-                                                $galaxy = $cluster['Galaxy'] ?? []; ?>
-                                                <span class="fi-cluster" title="<?= h($galaxy['name'] ?? '') ?>">
-                                                    <i class="fas fa-<?= h($galaxy['icon'] ?? 'globe') ?>"></i>
-                                                    <?php if (!empty($cluster['local'])): ?><i class="fas fa-user"></i><?php endif; ?>
-                                                    <?= h($cluster['value'] ?? '') ?>
-                                                </span>
-                                            <?php endforeach; ?>
-                                        </div>
-                                    <?php endif; ?>
-                                </td>
-                                <td class="fi-ev-c-org">
-                                    <?php if (!empty($orgc)): ?>
-                                        <a class="fi-ev-org" href="<?= h($baseurl . '/organisations/view/' . $orgc['id']) ?>" title="<?= h($orgc['name']) ?>">
-                                            <?php if ($logo !== ''): ?>
-                                                <span class="fi-org-tile"><?= $logo ?></span>
-                                            <?php else: ?>
-                                                <span class="fi-org-tile" aria-hidden="true"><?= h($initials($orgc['name'])) ?></span>
-                                            <?php endif; ?>
-                                            <span class="fi-ev-org-name"><?= h($orgc['name']) ?></span>
-                                        </a>
-                                    <?php endif; ?>
-                                </td>
-                                <td class="fi-ev-c-date fi-mono"><?= h($e['date']) ?></td>
-                                <td class="fi-ev-c-threat">
-                                    <span class="fi-threat fi-threat--<?= h($threatKinds[$threatId] ?? 'undefined') ?>">
-                                        <i class="fas fa-<?= h($threatIcons[$threatId] ?? 'circle-question') ?>"></i><?= h(ucfirst(strtolower($threatLabel))) ?>
-                                    </span>
-                                </td>
-                                <?php if ($showAttr): ?>
-                                    <td class="fi-ev-c-num fi-num">
-                                        <?= h(number_format((int)$e['attribute_count'])) ?>
-                                        <?php if (!empty($e['object_count'])): ?>
-                                            <span class="fi-ev-sub"><?= h(__n('%s object', '%s objects', (int)$e['object_count'], number_format((int)$e['object_count']))) ?></span>
-                                        <?php endif; ?>
-                                    </td>
-                                <?php endif; ?>
-                                <?php if ($showCorr): ?>
-                                    <td class="fi-ev-c-num fi-num fi-dim">
-                                        <?php if ($corrCount > 0): ?>
-                                            <a href="<?= h($rowUrl) ?>#tab-correlation"><?= h(number_format($corrCount)) ?></a>
-                                        <?php else: ?>0<?php endif; ?>
-                                    </td>
-                                <?php endif; ?>
-                                <td class="fi-ev-c-state">
-                                    <span class="fi-ev-state<?= $e['published'] ? '' : ' is-draft' ?>">
-                                        <?= $e['published'] ? __('Published') : __('Draft') ?>
-                                    </span>
-                                    <?php if ($proposals > 0): ?>
-                                        <span class="fi-ev-sub"><?= h(__n('%s proposal', '%s proposals', $proposals, $proposals)) ?></span>
-                                    <?php endif; ?>
-                                    <span class="fi-ev-sub" title="<?= __('Distribution') ?>"><?= h($distLabel) ?></span>
-                                </td>
-                                <td class="fi-ev-c-act">
-                                    <?= $this->element('genericElementsBS5/IndexTable/Fields/row_actions', [
-                                        'field' => $actionsField,
-                                        'row' => $event,
-                                    ]) ?>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                    </div>
-                    <?php endif; ?>
-                </div>
-
-                <div id="cardView" class="d-none">
-                    <?= $this->element('genericElementsBS5/IndexTable/index_card', [
-                        'scaffold_data' => ['data' => $scaffoldData],
+            <?php if ((int)($paging['pageCount'] ?? 0) > 1): ?>
+                <div class="fi-ev-pager">
+                    <?= $this->element('genericElementsBS5/IndexTable/pagination_nav', [
+                        'maxPages' => 7,
+                        'size' => 'sm',
                     ]) ?>
                 </div>
-            </div>
-
-            <div class="fi-ev-pagination">
-                <?= $this->element('genericElementsBS5/IndexTable/pagination') ?>
-            </div>
-
+            <?php endif; ?>
         </div>
     </div>
 </div>

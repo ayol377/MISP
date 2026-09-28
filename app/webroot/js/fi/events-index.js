@@ -1,11 +1,14 @@
 /*
- * OvermindFi events index: the facet column and row double-click.
+ * OvermindFi events index (Themed/OvermindFi/Events/index.ctp).
  *
- * Facets come from events/facetCounts, called with the filters of the URL
- * the page is showing. Each row is a plain link to events/index with that
- * facet's filter toggled, built with parseIndexUrl()/formatIndexUrl() from
- * mispOvermind.js. The filter-draft engine swaps #index-results in place and
- * pushes the new URL, so a change there is the cue to reload the facets.
+ *  - facets: loaded from events/facetCounts with the filters of the URL the
+ *    page shows; each row is a link to events/index with that facet
+ *    toggled (parseIndexUrl()/formatIndexUrl() from mispOvermind.js).
+ *  - search box + "More filters": upstream's draft engine,
+ *    initScaffoldFilterDraft(), with the config the template embeds. It
+ *    swaps #index-results in place and pushes the URL, which is the cue to
+ *    reload the facets.
+ *  - the Period chip's custom range, the column picker, row double-click.
  */
 (function () {
     'use strict';
@@ -21,15 +24,19 @@
         var loadedFor = null;
         var inFlight = null;
 
-        // The draft summary and these facets say the same thing; keep the
-        // panel folded unless the user opens it.
-        var panel = root.querySelector('[data-filter-draft-panel].show');
-        if (panel) {
-            panel.classList.remove('show');
-            var toggle = root.querySelector('[data-bs-target="#' + panel.id + '"]');
-            if (toggle) { toggle.setAttribute('aria-expanded', 'false'); }
-        }
+        /* ── filter draft (search box + More filters panel) ─────────── */
+        // After every other DOMContentLoaded handler, so the panel's
+        // selects are TomSelects already (initTopbarFilterSelects()).
+        setTimeout(function () {
+            var cfgEl = document.getElementById('fiEvDraftConfig');
+            if (!cfgEl || typeof initScaffoldFilterDraft !== 'function') { return; }
+            var cfg = JSON.parse(cfgEl.textContent);
+            cfg.scope = document;
+            cfg.ajaxContainer = null;
+            initScaffoldFilterDraft(root, cfg);
+        }, 0);
 
+        /* ── facets ─────────────────────────────────────────────────── */
         function pieces(value) {
             return value ? String(value).split('|').filter(Boolean) : [];
         }
@@ -41,7 +48,7 @@
             });
         }
 
-        // The URL's value for search<key>, whatever case the key came in.
+        // The URL's key for search<key>, whatever case it came in.
         function namedKey(named, key) {
             var wanted = 'search' + key;
             var found = Object.keys(named).find(function (k) { return k.toLowerCase() === wanted; });
@@ -94,7 +101,7 @@
                     name.textContent = item.label;
                     name.title = item.label;
                     var count = document.createElement('span');
-                    count.className = 'fi-ev-facet-count fi-mono';
+                    count.className = 'fi-ev-facet-count';
                     count.textContent = Number(item.count).toLocaleString('en-US');
                     row.append(dot, name, count);
                     box.appendChild(row);
@@ -129,7 +136,7 @@
                 .catch(function (error) {
                     if (error.name === 'AbortError') { return; }
                     loadedFor = null;
-                    groupsEl.innerHTML = '<div class="fi-ev-facet-loading fi-faint"></div>';
+                    groupsEl.innerHTML = '<div class="fi-ev-facet-loading"></div>';
                     groupsEl.firstChild.textContent = 'Filters could not be loaded.';
                 })
                 .finally(function () {
@@ -142,8 +149,7 @@
         if (results) {
             // Also fires for the busy overlay; load() skips an unchanged URL.
             new MutationObserver(load).observe(results, { childList: true });
-            // Delegated, so it survives the swap (index_table's own
-            // per-table listener does not).
+            // Delegated, so it survives the ajax swap.
             results.addEventListener('dblclick', function (e) {
                 if (e.target.closest('a, button, input, label, .dropdown')) { return; }
                 var tr = e.target.closest('.fi-ev-table tr[data-primary-id]');
@@ -153,6 +159,45 @@
             });
         }
         window.addEventListener('popstate', function () { setTimeout(load, 0); });
+
+        /* ── Period chip: custom date range ─────────────────────────── */
+        root.addEventListener('submit', function (e) {
+            var form = e.target.closest('[data-fi-ev-period]');
+            if (!form) { return; }
+            e.preventDefault();
+            var parts = parseIndexUrl(window.location.pathname, itemPath);
+            var named = parts.named;
+            delete named.page;
+            ['datefrom', 'dateuntil'].forEach(function (k) {
+                delete named[namedKey(named, k)];
+                var value = form.elements[k].value;
+                if (value) { named['search' + k] = value; }
+            });
+            window.location.href = formatIndexUrl(indexUrl, { positional: parts.positional, named: named });
+        });
+
+        /* ── column picker (the event_index_hide_columns user setting) ─ */
+        root.addEventListener('click', function (e) {
+            var btn = e.target.closest('[data-fi-ev-column]');
+            if (!btn) { return; }
+            btn.disabled = true;
+            fetch(root.dataset.columnUrl + encodeURIComponent(btn.dataset.fiEvColumn), {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'X-CSRF-Token': typeof getCsrfToken === 'function' ? getCsrfToken() : (window.csrfToken || ''),
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            })
+                .then(function (r) {
+                    if (!r.ok) { throw new Error('HTTP ' + r.status); }
+                    window.location.reload();
+                })
+                .catch(function () {
+                    btn.disabled = false;
+                    if (typeof showToast === 'function') { showToast('The columns could not be changed.', 'danger'); }
+                });
+        });
     }
 
     if (document.readyState === 'loading') {
