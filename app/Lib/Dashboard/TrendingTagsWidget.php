@@ -85,20 +85,16 @@ class TrendingTagsWidget
         // base set, plus an IN clause on Event.distribution. ACL-safe
         // because the input set was already filtered by
         // filterEventIds (which honours the user's permissions).
-        if (!empty($options['distribution']) && !empty($eventIds)) {
-            $distribution = is_array($options['distribution'])
-                ? array_values(array_filter($options['distribution'], 'is_numeric'))
-                : (is_numeric($options['distribution']) ? [(int)$options['distribution']] : []);
-            if (!empty($distribution)) {
-                $eventIds = array_keys($eventModel->find('list', [
-                    'recursive' => -1,
-                    'conditions' => [
-                        'Event.id' => $eventIds,
-                        'Event.distribution' => $distribution,
-                    ],
-                    'fields' => ['Event.id', 'Event.id'],
-                ]));
-            }
+        // Same post-step also carries the optional published / own_org
+        // narrowing (OverviewWidgetTool::eventFilter, fi Overview page).
+        App::uses('OverviewWidgetTool', 'Lib/Dashboard/Tools');
+        $eventFilter = OverviewWidgetTool::eventFilter($user, $options);
+        if (!empty($eventFilter) && !empty($eventIds)) {
+            $eventIds = array_keys($eventModel->find('list', [
+                'recursive' => -1,
+                'conditions' => ['Event.id' => $eventIds] + $eventFilter,
+                'fields' => ['Event.id', 'Event.id'],
+            ]));
         }
 
         $tagColours = [];

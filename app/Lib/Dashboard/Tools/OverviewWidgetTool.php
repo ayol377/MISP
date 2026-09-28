@@ -63,6 +63,41 @@ class OverviewWidgetTool
     }
 
     /**
+     * Optional event-level narrowing shared by the overview widgets (and
+     * the OvermindFi Overview page's Scope / Distribution / Published
+     * filters). Only whitelisted, int-cast values reach the conditions, so
+     * a board config can pass these too; they only ever narrow what the
+     * ACL conditions already allow.
+     *   published    '0' | '1'            → Event.published
+     *   distribution int | int[] (0..5)   → Event.distribution IN (...)
+     *   own_org      truthy               → Event.orgc_id = viewer's org
+     *
+     * @return array Event.* conditions ([] when no filter is set)
+     */
+    public static function eventFilter(array $user, array $options)
+    {
+        $conditions = [];
+        if (isset($options['published']) && in_array((string)$options['published'], ['0', '1'], true)) {
+            $conditions['Event.published'] = (int)$options['published'];
+        }
+        if (isset($options['distribution']) && $options['distribution'] !== '' && $options['distribution'] !== []) {
+            $levels = [];
+            foreach ((array)$options['distribution'] as $level) {
+                if (is_numeric($level) && (int)$level >= 0 && (int)$level <= 5) {
+                    $levels[] = (int)$level;
+                }
+            }
+            if (!empty($levels)) {
+                $conditions['Event.distribution'] = array_values(array_unique($levels));
+            }
+        }
+        if (!empty($options['own_org'])) {
+            $conditions['Event.orgc_id'] = (int)$user['org_id'];
+        }
+        return $conditions;
+    }
+
+    /**
      * INNER JOIN events AS Event on the given foreign key.
      */
     public static function eventJoin($foreignKey)
@@ -91,27 +126,32 @@ class OverviewWidgetTool
     /**
      * Conditions + joins for an ACL-scoped query on MispAttribute.
      * buildConditions() references Event.* and Object.*, so both are
-     * joined for non-admins; site admins skip the joins entirely.
+     * joined for non-admins; site admins skip the joins entirely unless
+     * $eventFilter (see eventFilter()) needs the Event join.
      *
      * @return array [conditions, joins]
      */
-    public static function attributeQuery(array $user, array $conditions)
+    public static function attributeQuery(array $user, array $conditions, array $eventFilter = [])
     {
         $attributeModel = ClassRegistry::init('MispAttribute');
         $acl = $attributeModel->buildConditions($user);
-        if (empty($acl)) {
-            return [$conditions, []];
+        $joins = [];
+        if (!empty($acl) || !empty($eventFilter)) {
+            $joins[] = self::eventJoin('Attribute.event_id');
         }
-        $conditions['AND'][] = $acl;
-        return [$conditions, [
-            self::eventJoin('Attribute.event_id'),
-            [
+        if (!empty($eventFilter)) {
+            $conditions['AND'][] = $eventFilter;
+        }
+        if (!empty($acl)) {
+            $conditions['AND'][] = $acl;
+            $joins[] = [
                 'table' => 'objects',
                 'alias' => 'Object',
                 'type' => 'LEFT',
                 'conditions' => ['Object.id = Attribute.object_id'],
-            ],
-        ]];
+            ];
+        }
+        return [$conditions, $joins];
     }
 
     /**
@@ -122,11 +162,14 @@ class OverviewWidgetTool
      * ponytail: capped at $limit rows; switch to SQL-side grouping if
      * instances routinely exceed it within one window.
      */
-    public static function eventTagRows(array $user, $tagPrefix, $start, $limit = 50000)
+    public static function eventTagRows(array $user, $tagPrefix, $start, array $eventFilter = [], $limit = 50000)
     {
         $eventModel = ClassRegistry::init('Event');
         $conditions = $eventModel->createEventConditions($user);
         $conditions += self::window('Event.timestamp', $start);
+        if (!empty($eventFilter)) {
+            $conditions[] = $eventFilter;
+        }
         $conditions['Tag.name LIKE'] = $tagPrefix . '%';
         $rows = ClassRegistry::init('EventTag')->find('all', [
             'recursive' => -1,

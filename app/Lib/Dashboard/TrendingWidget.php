@@ -1,6 +1,7 @@
 <?php
 
 App::uses('DashboardURLValidator', 'Lib/Dashboard/Tools');
+App::uses('OverviewWidgetTool', 'Lib/Dashboard/Tools');
 
 /**
  * TrendingWidget — the analyst dashboard's parametrised "what is rising"
@@ -119,6 +120,9 @@ class TrendingWidget
     public $cache_duration = 1200;
     public $cache_scope = 'org';
 
+    /** Event.* narrowing for this handler() call (see handler()). */
+    private $eventFilter = array();
+
     /**
      * Per-dimension hook registry. Each new dimension (build phases
      * B4/B5/B6) adds one entry here plus its hook methods — purely additive.
@@ -152,6 +156,10 @@ class TrendingWidget
 
     public function handler($user, $options = array())
     {
+        // Optional published / distribution / own_org narrowing of the
+        // source events (OverviewWidgetTool::eventFilter), applied with the
+        // ACL in aclVisibleEventIds(). Used by the fi Overview page.
+        $this->eventFilter = OverviewWidgetTool::eventFilter($user, $options);
         $dimensions = $this->dimensions();
         $dimensionKey = (!empty($options['dimension'])
             && isset($dimensions[$options['dimension']]))
@@ -274,6 +282,9 @@ class TrendingWidget
         $eventModel = ClassRegistry::init('Event');
         $conditions = $eventModel->createEventConditions($user);
         $conditions['Event.id'] = $candidateIds;
+        if (!empty($this->eventFilter)) {
+            $conditions[] = $this->eventFilter;
+        }
         return $eventModel->find('column', array(
             'recursive' => -1,
             'conditions' => $conditions,

@@ -94,6 +94,9 @@
                 </div>
             </div>
             <div>
+                <?php if (!empty($fiBoard)): // DashboardsController::index, ?board=1 ?>
+                    <a class="fi-ov-back" href="<?= h($baseurl . '/dashboards') ?>">&larr; <?= __('Overview') ?></a>
+                <?php endif; ?>
                 <?= $this->fetch('content') ?>
             </div>
         </main>

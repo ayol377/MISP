@@ -144,3 +144,173 @@
   font-size: 10px;
   color: #7a7a7a;
 }
+
+/* ======================================================================
+   Overview page (Themed/OvermindFi/Dashboards/overview.ctp, mockup 1a).
+   ====================================================================== */
+.fi-ov { display: flex; flex-direction: column; gap: 16px; padding-top: 22px; color: #eeeeee; }
+.fi-ov a { color: inherit; text-decoration: none; }
+.fi-ov a:hover { color: #4db3e6; }
+
+/* header: title, filters, customise link, range pills */
+.fi-ov-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.fi-ov-head-left, .fi-ov-head-right { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+.fi-ov-title { margin: 0; font-size: 22px; font-weight: 500; line-height: 1.2; color: #eeeeee; }
+.fi-ov-filters { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 0; }
+.fi-ov-filter { display: inline-flex; align-items: center; gap: 8px; margin: 0; font-size: 11px; color: #7a7a7a; }
+.fi-ov-filter select {
+  appearance: none;
+  -webkit-appearance: none;
+  field-sizing: content; /* width of the chosen option, not the longest */
+  height: 24px;
+  margin: 0;
+  padding: 2px 22px 2px 8px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 3px;
+  background: rgba(255,255,255,0.06) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23a8a8a8' stroke-width='1.2'/%3E%3C/svg%3E") no-repeat right 7px center / 8px 5px;
+  color: #eeeeee;
+  font-size: 12px;
+  font-weight: 500;
+  box-shadow: none;
+  cursor: pointer;
+}
+.fi-ov-filter select:hover { background-color: rgba(255,255,255,0.1); }
+.fi-ov-filter select:focus-visible { outline: 1px solid #0088cc; outline-offset: 1px; }
+.fi-ov-filter option { background: #222222; color: #eeeeee; }
+.fi-ov-apply { height: 24px; padding: 0 10px; border: 0; border-radius: 3px; background: #0077b3; color: #ffffff; font-size: 12px; }
+.fi-ov .fi-ov-customize { font-size: 12px; color: #a8a8a8; }
+.fi-ov .fi-ov-customize:hover { color: #eeeeee; }
+.fi-ov-ranges { display: inline-flex; gap: 2px; }
+.fi-ov .fi-ov-ranges a { padding: 4px 10px; border-radius: 3px; font-size: 12px; color: #a8a8a8; }
+.fi-ov .fi-ov-ranges a:hover { background: rgba(255,255,255,0.06); color: #eeeeee; }
+.fi-ov .fi-ov-ranges a.is-active { background: #0077b3; color: #ffffff; font-weight: 500; }
+
+/* panels */
+.fi-ov-panel { display: flex; flex-direction: column; min-width: 0; padding: 16px; box-shadow: none; }
+.fi-ov-panel .fi-panel-title { margin-bottom: 14px; }
+.fi-ov-panel .fi-panel-title::before {
+  content: '';
+  flex: none;
+  align-self: center;
+  width: 2px;
+  height: 12px;
+  margin-right: 2px;
+  background: #da4f49;
+}
+.fi-ov-body { flex: 1; min-height: 0; position: relative; }
+.fi-ov-loading, .fi-ov-empty { font-size: 12px; color: #7a7a7a; }
+.fi-ov-body[aria-busy="true"] .fi-ov-loading { animation: fi-ov-pulse 1.4s ease-in-out infinite; }
+@keyframes fi-ov-pulse { 50% { opacity: 0.4; } }
+@media (prefers-reduced-motion: reduce) { .fi-ov-body[aria-busy="true"] .fi-ov-loading { animation: none; } }
+
+.fi-ov-grid-main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; }
+.fi-ov-side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.fi-ov-grid-bottom { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+@media (max-width: 1100px) { .fi-ov-grid-main { grid-template-columns: minmax(0, 1fr); } }
+
+/* stat strip: one panel, six stats */
+.fi-ov-statstrip { padding: 18px 16px 16px; }
+.fi-ov-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 16px; }
+.fi-ov-stat { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.fi-ov-stat-label { font-size: 12px; color: #a8a8a8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fi-ov-stat-line { display: flex; align-items: baseline; gap: 8px; }
+.fi-ov-stat-value { font-size: 26px; line-height: 1.05; color: #eeeeee; }
+a.fi-ov-stat:hover .fi-ov-stat-value { color: #4db3e6; }
+.fi-ov-stat-max { font-size: 10px; color: #7a7a7a; }
+.fi-ov-badge {
+  align-self: center;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: 'Spline Sans Mono', ui-monospace, monospace;
+  font-size: 10px;
+  line-height: 14px;
+  color: #ffffff;
+}
+.fi-ov-badge-bad { background: #da4f49; }
+.fi-ov-badge-good { background: #3f8f3f; }
+.fi-ov-badge-neutral { background: rgba(255,255,255,0.14); color: #a8a8a8; }
+
+/* map */
+.fi-ov-map .fi-ov-body {
+  min-height: 330px;
+  background: radial-gradient(ellipse 60% 55% at 45% 60%, rgba(0,136,204,0.14), transparent 70%);
+}
+.fi-ov-map .misp-dotmap { position: absolute; inset: 0; min-height: 0; }
+.fi-ov-map .misp-dotmap-flag {
+  left: 12px;
+  top: 8px;
+  padding: 5px 10px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(30,30,30,0.92);
+  font-size: 11px;
+}
+.fi-ov-map .misp-dotmap-flag::before { content: '\25B2'; margin-right: 8px; color: #f89406; font-size: 9px; }
+.fi-ov-map .misp-dotmap-foot { position: absolute; right: 0; bottom: 0; padding: 0; }
+
+/* ingest */
+.fi-ov-ingest { display: flex; flex-direction: column; gap: 6px; }
+.fi-ov-ingest-plot { position: relative; height: 58px; }
+.fi-ov-ingest-plot svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.fi-ov-ingest-dot {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  margin: -2.5px 0 0 -2.5px;
+  border-radius: 50%;
+  background: #5bb75b;
+}
+.fi-ov-axis { display: flex; justify-content: space-between; font-size: 10px; color: #7a7a7a; }
+
+/* rank tables */
+.fi-ov-rank { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 12px; }
+.fi-ov-rank th {
+  padding: 0 0 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  font-size: 11px;
+  font-weight: 400;
+  color: #7a7a7a;
+  text-align: left;
+}
+.fi-ov-rank th:first-child { width: 56px; }
+.fi-ov-rank td {
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  font-weight: 400;
+  color: #eeeeee;
+  background: transparent;
+}
+.fi-ov-rank tr:last-child td { border-bottom: 0; }
+.fi-ov-rank td:first-child { font-size: 11px; color: #a8a8a8; }
+.fi-ov-rank-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fi-ov-rank .fi-ov-num { width: 64px; text-align: right; }
+
+/* feeds and sync */
+.fi-ov-sync { display: flex; flex-direction: column; gap: 9px; font-size: 12px; font-weight: 400; }
+.fi-ov-sync-row { display: grid; grid-template-columns: minmax(0, 1fr) 90px 44px; gap: 10px; align-items: center; }
+.fi-ov-sync-name { display: flex; align-items: center; gap: 10px; min-width: 0; white-space: nowrap; overflow: hidden; color: #eeeeee; }
+.fi-ov-sync-name a { overflow: hidden; text-overflow: ellipsis; }
+.fi-ov-sync-mark { flex: none; width: 8px; height: 8px; border-radius: 50%; background: #5bb75b; }
+.fi-ov-sync-warn .fi-ov-sync-mark,
+.fi-ov-sync-danger .fi-ov-sync-mark {
+  width: 10px;
+  border-radius: 0;
+  background: #f89406;
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+.fi-ov-sync-danger .fi-ov-sync-mark { background: #da4f49; }
+.fi-ov-sync-bars { width: 90px; height: 14px; color: #7a7a7a; }
+.fi-ov-sync-ago { text-align: right; font-size: 10px; color: #7a7a7a; }
+.fi-ov-sync-danger .fi-ov-sync-ago { color: #da4f49; }
+
+/* ATT&CK tactics punch-card */
+.fi-ov-tactics { display: flex; flex-direction: column; gap: 8px; }
+.fi-ov-tactic { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 10px; align-items: start; }
+.fi-ov-tactic-label { font-size: 11px; line-height: 16px; color: #a8a8a8; }
+.fi-ov-tactic-cells { display: flex; flex-wrap: wrap; gap: 6px 7px; padding-top: 4px; }
+.fi-ov-dot { flex: none; width: 4px; height: 4px; border-radius: 50%; background: rgba(255,255,255,0.22); }
+.fi-ov-dot.is-on { background: #d8d8d8; }
+.fi-ov-dot.is-spike { background: #da4f49; }
+
+/* board -> overview link (fi dashboard layout, /dashboards?board=1) */
+.fi-ov-back { display: inline-block; margin-top: 16px; font-size: 12px; color: #a8a8a8; text-decoration: none; }
+.fi-ov-back:hover { color: #eeeeee; }

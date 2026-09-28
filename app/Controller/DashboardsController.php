@@ -34,6 +34,17 @@ class DashboardsController extends AppController
 
     public function index()
     {
+        // OvermindFi: /dashboards is the fixed Overview page (mockup 1a).
+        // The customisable board below stays reachable at
+        // /dashboards?board=1 ("Customize dashboard" on the Overview).
+        // themeVariant is only ever set for non-REST requests, so REST
+        // clients always get the layout payload below.
+        if (($this->viewVars['themeVariant'] ?? null) === 'fi') {
+            if (empty($this->request->query['board'])) {
+                return $this->__fiOverview();
+            }
+            $this->set('fiBoard', true);
+        }
         App::uses('LayoutFixup', 'Lib/Dashboard/Tools');
         App::uses('WidgetSchema', 'Lib/Dashboard/Tools');
         // Layout priority chain:
@@ -178,6 +189,84 @@ class DashboardsController extends AppController
         $this->set('title_for_layout', __('Dashboard'));
         $this->set('widgets', $widgets);
         $this->set('dashboardThemePref', $themePref);
+    }
+
+    /**
+     * OvermindFi Overview page (mockup 1a): a fixed set of dashboard v2
+     * widgets drawn with fi markup. The page itself is a shell; each panel
+     * loads from this same URL plus ?panel=<key> (one GET per panel, so a
+     * cold widget cache never holds up first paint). Every panel is the
+     * widget's own handler() through WidgetCache::remember, so ACL scoping,
+     * checkPermissions and cache entries are exactly the board's. The page's
+     * range and Scope / Distribution / Published filters become widget
+     * options (time_window + OverviewWidgetTool::eventFilter keys).
+     */
+    private function __fiOverview()
+    {
+        App::uses('WidgetCache', 'Lib/Dashboard/Tools');
+        $user = $this->Auth->user();
+        $query = $this->request->query;
+        $ranges = ['24h' => '1d', '7d' => '7d', '30d' => '30d', '90d' => '90d'];
+        $pick = function ($key, array $allowed, $default) use ($query) {
+            return (isset($query[$key]) && in_array((string)$query[$key], $allowed, true))
+                ? (string)$query[$key]
+                : $default;
+        };
+        $filters = [
+            'range' => $pick('range', array_keys($ranges), '30d'),
+            'scope' => $pick('scope', ['all', 'org'], 'all'),
+            'distribution' => $pick('distribution', ['0', '1', '2', '3', '4'], ''),
+            'published' => $pick('published', ['0', '1'], ''),
+        ];
+        $options = ['time_window' => $ranges[$filters['range']]];
+        if ($filters['scope'] === 'org') {
+            $options['own_org'] = 1;
+        }
+        if ($filters['distribution'] !== '') {
+            $options['distribution'] = [(int)$filters['distribution']];
+        }
+        if ($filters['published'] !== '') {
+            $options['published'] = $filters['published'];
+        }
+
+        $panels = [
+            'stats' => ['OverviewStatsWidget', []],
+            'origin' => ['AttributedOriginMapWidget', []],
+            'ingest' => ['AttributeIngestWidget', ['forecast' => true]],
+            'actors' => ['TrendingWidget', ['dimension' => 'threat-actor', 'threshold' => 5]],
+            'tags' => ['TrendingTagsWidget', ['threshold' => 5]],
+            'sync' => ['FeedSyncHealthWidget', ['limit' => 5]],
+            'tactics' => ['AttackTacticsWidget', []],
+        ];
+        // Feeds and sync is site-admin data (the widget's checkPermissions);
+        // for everyone else the bottom row is the other two panels.
+        if ($this->Dashboard->loadWidget($user, 'FeedSyncHealthWidget', true) === false) {
+            unset($panels['sync']);
+        }
+
+        $panel = isset($query['panel']) ? $query['panel'] : null;
+        if ($panel === null) {
+            $this->layout = 'dashboard';
+            $this->set('title_for_layout', __('Overview'));
+            $this->set('filters', $filters);
+            $this->set('ranges', array_keys($ranges));
+            $this->set('panels', array_keys($panels));
+            return $this->render('overview');
+        }
+        if (!is_string($panel) || !isset($panels[$panel])) {
+            throw new NotFoundException(__('Invalid panel.'));
+        }
+        list($class, $config) = $panels[$panel];
+        $widget = $this->Dashboard->loadWidget($user, $class);
+        $config += $options;
+        $data = WidgetCache::remember($widget, $config, function () use ($widget, $user, $config) {
+            return $widget->handler($user, $config);
+        }, $user);
+        $this->layout = false;
+        $this->set('panel', $panel);
+        $this->set('data', $data);
+        $this->set('filters', $filters);
+        return $this->render('overview_panel');
     }
 
     /**
@@ -1237,7 +1326,7 @@ class DashboardsController extends AppController
                 } else {
                     $this->Flash->error(__('Settings could not be updated.'));
                 }
-                $this->redirect($this->baseurl . '/dashboards');
+                $this->redirect($this->__boardUrl());
             }
         }
         $this->layout = false;
@@ -1727,6 +1816,16 @@ class DashboardsController extends AppController
                 __('Could not reset dashboard from template "%s".', $templateName)
             );
         }
-        $this->redirect($this->baseurl . '/dashboards');
+        $this->redirect($this->__boardUrl());
+    }
+
+    /**
+     * The customisable board's URL: /dashboards, or /dashboards?board=1 under
+     * OvermindFi, where /dashboards is the Overview page (see index()).
+     */
+    private function __boardUrl()
+    {
+        $fi = ($this->viewVars['themeVariant'] ?? null) === 'fi';
+        return $this->baseurl . '/dashboards' . ($fi ? '?board=1' : '');
     }
 }

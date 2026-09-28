@@ -63,7 +63,7 @@ class AttributeIngestWidget
 
         $conditions = OverviewWidgetTool::window('Attribute.timestamp', $first * $bucket);
         $conditions['Attribute.deleted'] = 0;
-        list($conditions, $joins) = OverviewWidgetTool::attributeQuery($user, $conditions);
+        list($conditions, $joins) = OverviewWidgetTool::attributeQuery($user, $conditions, OverviewWidgetTool::eventFilter($user, $options));
         // Integer bucketing is portable (MySQL and PostgreSQL) and UTC-aligned.
         $expr = 'FLOOR(Attribute.timestamp / ' . (int)$bucket . ')';
         $rows = ClassRegistry::init('MispAttribute')->find('all', [

@@ -63,7 +63,7 @@ class AttackTacticsWidget
         $cols = (int)ceil($window / $bucket);
         $start = time() - $cols * $bucket;
 
-        $pairs = OverviewWidgetTool::eventTagRows($user, 'misp-galaxy:mitre-attack-pattern=', $start);
+        $pairs = OverviewWidgetTool::eventTagRows($user, 'misp-galaxy:mitre-attack-pattern=', $start, OverviewWidgetTool::eventFilter($user, $options));
         $tagNames = array_unique(array_column($pairs, 1));
         $tacticsByTag = [];
         foreach (OverviewWidgetTool::clusterElements($user, $tagNames, 'kill_chain') as $tagName => $chains) {

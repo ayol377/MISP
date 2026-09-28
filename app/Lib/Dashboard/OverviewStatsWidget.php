@@ -49,9 +49,14 @@ class OverviewStatsWidget
     /** Most recent in-window events whose correlations are counted. */
     const CORRELATION_EVENT_CAP = 500;
 
+    /** Event.* narrowing for this handler() call (eventFilter()). */
+    private $filter = [];
+
     public function handler($user, $options = array())
     {
         $window = OverviewWidgetTool::parseWindow($options, 30 * OverviewWidgetTool::DAY);
+        // Optional Scope / Distribution / Published narrowing (fi Overview).
+        $this->filter = OverviewWidgetTool::eventFilter($user, $options);
         $now = time();
         $cur = $window === -1 ? [null, null] : [$now - $window, null];
         $prior = $window === -1 ? null : [$now - 2 * $window, $now - $window];
@@ -101,6 +106,9 @@ class OverviewStatsWidget
     {
         list($current, $previous) = $pair;
         $row = ['title' => $title, 'value' => $current === null ? __('N/A') : ($display ?? $current)];
+        // Unformatted pair for renderers that format themselves (fi Overview).
+        $row['raw'] = $current;
+        $row['previous'] = $previous;
         if ($current !== null && $previous !== null) {
             $row['change'] = $current - $previous;
         }
@@ -118,6 +126,9 @@ class OverviewStatsWidget
         $eventModel = ClassRegistry::init('Event');
         $conditions = $eventModel->createEventConditions($user);
         $conditions += OverviewWidgetTool::window('Event.timestamp', $start, $end);
+        if (!empty($this->filter)) {
+            $conditions[] = $this->filter;
+        }
         return (int)$eventModel->find('count', ['recursive' => -1, 'conditions' => $conditions]);
     }
 
@@ -128,7 +139,7 @@ class OverviewStatsWidget
         if ($idsOnly) {
             $conditions['Attribute.to_ids'] = 1;
         }
-        list($conditions, $joins) = OverviewWidgetTool::attributeQuery($user, $conditions);
+        list($conditions, $joins) = OverviewWidgetTool::attributeQuery($user, $conditions, $this->filter);
         return (int)ClassRegistry::init('MispAttribute')->find('count', [
             'recursive' => -1,
             'joins' => $joins,
@@ -150,6 +161,9 @@ class OverviewStatsWidget
         $eventModel = ClassRegistry::init('Event');
         $conditions = $eventModel->createEventConditions($user);
         $conditions += OverviewWidgetTool::window('Event.timestamp', $start, $end);
+        if (!empty($this->filter)) {
+            $conditions[] = $this->filter;
+        }
         $eventIds = $eventModel->find('column', [
             'recursive' => -1,
             'conditions' => $conditions,
@@ -205,6 +219,12 @@ class OverviewStatsWidget
                 $conditions['AND'][] = ['OR' => [['Event.org_id' => $orgId], $foreign]];
             }
         }
+        if (!empty($this->filter)) {
+            if (empty($joins)) {
+                $joins[] = OverviewWidgetTool::eventJoin('Sighting.event_id');
+            }
+            $conditions['AND'][] = $this->filter;
+        }
         return (int)$sightingModel->find('count', [
             'recursive' => -1,
             'joins' => $joins,
@@ -234,6 +254,12 @@ class OverviewStatsWidget
                     'conditions' => ['Attribute.id = ShadowAttribute.old_id'],
                 ],
             ];
+        }
+        if (!empty($this->filter)) {
+            if (empty($joins)) {
+                $joins[] = OverviewWidgetTool::eventJoin('ShadowAttribute.event_id');
+            }
+            $conditions['AND'][] = $this->filter;
         }
         return (int)$proposalModel->find('count', [
             'recursive' => -1,

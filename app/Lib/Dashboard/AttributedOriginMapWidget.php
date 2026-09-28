@@ -48,7 +48,7 @@ class AttributedOriginMapWidget
         $start = $window === -1 ? null : time() - $window;
 
         $eventsByActor = [];
-        foreach (OverviewWidgetTool::eventTagRows($user, 'misp-galaxy:threat-actor=', $start) as $row) {
+        foreach (OverviewWidgetTool::eventTagRows($user, 'misp-galaxy:threat-actor=', $start, OverviewWidgetTool::eventFilter($user, $options)) as $row) {
             $eventsByActor[$row[1]][$row[0]] = true;
         }
         $countries = OverviewWidgetTool::clusterElements($user, array_keys($eventsByActor), 'country');
