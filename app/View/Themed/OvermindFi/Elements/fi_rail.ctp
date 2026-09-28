@@ -224,6 +224,7 @@ $roleName = $me['Role']['name'] ?? '';
 ?>
 <aside class="mfi-rail" aria-label="<?= __('Main navigation') ?>">
     <a class="mfi-brand" href="<?= empty($homepage['path']) ? h($baseurl) . '/' : h($baseurl . $homepage['path']) ?>">
+        <?= $this->Html->image('misp-logo-main-cmyk-icon coul.png', ['alt' => '', 'class' => 'mfi-brand-logo']) ?>
         <span class="mfi-brand-name"><?= h(Configure::read('MISP.title_text') ?: 'MISP') ?></span>
         <?php if ($orgName !== ''): ?><span class="mfi-brand-org"><?= h($orgName) ?></span><?php endif; ?>
     </a>

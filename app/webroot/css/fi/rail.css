@@ -31,6 +31,7 @@ body.mfi-shell main.content { padding: 22px 24px; }
 .mfi-rail summary::-webkit-details-marker { display: none; }
 .mfi-rail :focus-visible { outline: none; box-shadow: 0 0 0 2px rgba(0,136,204,0.45); }
 
+.mfi-brand-logo { height: 26px; width: auto; flex-shrink: 0; align-self: center; }
 .mfi-brand { display: flex; align-items: baseline; gap: 8px; padding: 0 8px; color: #eeeeee; }
 .mfi-brand:hover { color: #ffffff; }
 .mfi-brand-name { font-family: 'Big Shoulders Display', 'Saira', sans-serif; font-weight: 500; font-size: 24px; letter-spacing: 0.06em; line-height: 1; }

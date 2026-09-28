@@ -269,3 +269,7 @@ body[data-controller="users"] .card { background: var(--mfi-raised); border: 1px
 }
 [data-bs-theme] .form-check-input { --bs-form-check-bg: #121212; background-color: #121212; border-color: rgba(255,255,255,0.22); }
 [data-bs-theme] .form-check-input:checked { background-color: var(--mfi-blue); border-color: var(--mfi-blue); }
+/* mainOvermind paints the index checkbox/row-action cell white */
+.checkbox-actions-wrapper { background: transparent; }
+.checkbox-index input[type="checkbox"] { background-color: #121212; border: 1px solid rgba(255,255,255,0.22); border-radius: 3px; }
+.checkbox-index input[type="checkbox"]:checked { background-color: var(--mfi-blue); border-color: var(--mfi-blue); }
