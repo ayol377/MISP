@@ -414,16 +414,29 @@
         },
         ticker: function (d, body) {
             var track = body.querySelector('.w-ticker-track');
-            var frag = document.createDocumentFragment();
-            // Two copies: the track scrolls by half its width, seamlessly.
-            for (var copy = 0; copy < 2; copy++) {
+            var viewport = track.parentNode;
+            var set = function () {
+                var s = el('span', '', '');
                 d.rows.forEach(function (e) {
-                    frag.appendChild(el('span', 'w-id', '#' + e.id + ' '));
-                    frag.appendChild(el('span', '', e.info));
-                    frag.appendChild(el('span', 'w-sep', '·'));
-                    frag.appendChild(el('span', 'w-org', e.org));
-                    frag.appendChild(el('span', 'w-sep', '·'));
+                    s.appendChild(el('span', 'w-id', '#' + e.id + ' '));
+                    s.appendChild(el('span', '', e.info));
+                    s.appendChild(el('span', 'w-sep', '·'));
+                    s.appendChild(el('span', 'w-org', e.org));
+                    s.appendChild(el('span', 'w-sep', '·'));
                 });
+                return s;
+            };
+            track.replaceChildren(set());
+            if (!d.rows.length) {
+                return;
+            }
+            // Each half must be at least as wide as the viewport, or a short
+            // list leaves a gap: repeat the set, then double it so the
+            // -50% scroll loops seamlessly.
+            var reps = Math.max(1, Math.ceil(viewport.clientWidth / Math.max(1, track.scrollWidth)));
+            var frag = document.createDocumentFragment();
+            for (var i = 0; i < reps * 2; i++) {
+                frag.appendChild(set());
             }
             track.replaceChildren(frag);
             // Constant speed (~60 px/s) whatever the length.
