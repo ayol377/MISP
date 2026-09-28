@@ -1,0 +1,70 @@
+{
+    "uuid": "66bf9cb7-bc77-4e7a-9783-03833e512329",
+    "name": "Ops overview",
+    "description": "A map-led overview of the community for the time window: a stat strip with deltas, activity by attributed threat-actor origin, the attribute ingest trend, top threat actors, top tags and the ATT&CK tactics observed. Site admins can add the Feeds and sync widget.",
+    "selectable": true,
+    "restrict_to_org_id": 0,
+    "restrict_to_role_id": 0,
+    "restrict_to_permission_flag": "",
+    "value": [
+        {
+            "instance_id": "w_1",
+            "widget": "OverviewStatsWidget",
+            "config": {
+                "alias": "",
+                "time_window": "30d"
+            },
+            "position": {"x": 0, "y": 0, "w": 12, "h": 2}
+        },
+        {
+            "instance_id": "w_2",
+            "widget": "AttributedOriginMapWidget",
+            "config": {
+                "alias": "",
+                "time_window": "30d"
+            },
+            "position": {"x": 0, "y": 2, "w": 8, "h": 7}
+        },
+        {
+            "instance_id": "w_3",
+            "widget": "AttributeIngestWidget",
+            "config": {
+                "alias": "",
+                "time_window": "30d",
+                "forecast": true
+            },
+            "position": {"x": 8, "y": 2, "w": 4, "h": 3}
+        },
+        {
+            "instance_id": "w_4",
+            "widget": "TrendingWidget",
+            "config": {
+                "alias": "Top threat actors",
+                "dimension": "threat-actor",
+                "time_window": "30d",
+                "threshold": 5,
+                "min_count": 3
+            },
+            "position": {"x": 8, "y": 5, "w": 4, "h": 4}
+        },
+        {
+            "instance_id": "w_5",
+            "widget": "TrendingTagsWidget",
+            "config": {
+                "alias": "Top tags",
+                "time_window": "30d",
+                "threshold": 5
+            },
+            "position": {"x": 0, "y": 9, "w": 6, "h": 4}
+        },
+        {
+            "instance_id": "w_6",
+            "widget": "AttackTacticsWidget",
+            "config": {
+                "alias": "",
+                "time_window": "30d"
+            },
+            "position": {"x": 6, "y": 9, "w": 6, "h": 4}
+        }
+    ]
+}

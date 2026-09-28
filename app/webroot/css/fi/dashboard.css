@@ -1,1 +1,146 @@
-/* OvermindFi: dashboard screen. */
+/* OvermindFi: dashboard screen (mockup 1a). Loaded only by
+   Themed/OvermindFi/Layouts/dashboard.ctp. Widgets are dashboard v2
+   widgets; this file only restyles their render kinds. */
+
+/* ---- shared ---------------------------------------------------------- */
+.misp-dashboard-page .misp-list-empty { color: #7a7a7a; font-size: 12px; }
+
+/* ---- StatGrid (all), sentence-case labels + display numerals --------- */
+.misp-stat-label { text-transform: none; letter-spacing: 0; font-size: 11px; color: #a8a8a8; }
+.misp-stat-value {
+  font-family: 'Big Shoulders Display', 'Saira', sans-serif;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  font-size: 26px;
+  color: #eeeeee;
+}
+.misp-stat-delta { font-family: 'Spline Sans Mono', ui-monospace, monospace; font-size: 10px; font-weight: 400; }
+.misp-stat-delta-up { color: #5bb75b; background: rgba(91,183,91,0.12); }
+.misp-stat-delta-down { color: #da4f49; background: rgba(218,79,73,0.12); }
+
+/* Overview stat strip: one row of six, no inner cards. */
+[data-widget-name="OverviewStatsWidget"] .misp-stat-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(130px, 100%), 1fr));
+  gap: 16px;
+}
+[data-widget-name="OverviewStatsWidget"] .misp-stat-card {
+  background: transparent;
+  border: 0;
+  border-left: 1px solid rgba(255,255,255,0.08);
+  border-radius: 0;
+  padding: 2px 0 2px 12px;
+}
+[data-widget-name="OverviewStatsWidget"] .misp-stat-card:first-child { border-left: 0; padding-left: 0; }
+[data-widget-name="OverviewStatsWidget"] a.misp-stat-card:hover { border-color: rgba(255,255,255,0.08); box-shadow: none; }
+[data-widget-name="OverviewStatsWidget"] a.misp-stat-card:hover .misp-stat-value { color: #4db3e6; }
+
+/* ---- DotMap ------------------------------------------------------------ */
+.misp-dotmap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 160px;
+}
+.misp-dotmap-svg { flex: 1; width: 100%; min-height: 0; display: block; }
+.misp-dotmap-land { stroke: #4f6b82; stroke-opacity: 0.5; }
+.misp-dotmap-hot:hover { stroke-width: 0.8; }
+.misp-dotmap-flag {
+  position: absolute;
+  left: 4px;
+  top: 0;
+  padding: 3px 8px;
+  border-radius: 3px;
+  background: rgba(22,22,22,0.85);
+  border: 1px solid rgba(218,79,73,0.45);
+  color: #eeeeee;
+  font-size: 11px;
+}
+.misp-dotmap-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding-top: 6px;
+  font-size: 11px;
+  color: #7a7a7a;
+}
+.misp-dotmap-legend { display: inline-flex; align-items: center; gap: 6px; font-family: 'Spline Sans Mono', ui-monospace, monospace; font-size: 10px; }
+.misp-dotmap-legend svg { border-radius: 2px; }
+
+/* ---- Sparkline --------------------------------------------------------- */
+.misp-sparkline { display: flex; flex-direction: column; gap: 4px; height: 100%; color: #5bb75b; }
+.misp-sparkline-head { display: flex; align-items: baseline; gap: 8px; }
+.misp-sparkline-total {
+  font-family: 'Big Shoulders Display', 'Saira', sans-serif;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  font-size: 22px;
+  color: #eeeeee;
+}
+.misp-sparkline-unit { font-size: 11px; color: #7a7a7a; }
+.misp-sparkline-svg { flex: 1; width: 100%; min-height: 40px; display: block; overflow: visible; }
+.misp-sparkline-axis,
+.misp-punchcard-axis td:nth-child(2) {
+  display: flex;
+  justify-content: space-between;
+  font-family: 'Spline Sans Mono', ui-monospace, monospace;
+  font-size: 10px;
+  color: #7a7a7a;
+}
+
+/* ---- SyncHealth -------------------------------------------------------- */
+.misp-synchealth { display: flex; flex-direction: column; gap: 9px; font-size: 12px; }
+.misp-synchealth-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 90px 44px;
+  gap: 10px;
+  align-items: center;
+}
+.misp-synchealth-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #eeeeee;
+}
+.misp-synchealth-name a { color: inherit; text-decoration: none; overflow: hidden; text-overflow: ellipsis; }
+.misp-synchealth-name a:hover { color: #4db3e6; }
+.misp-synchealth-dot { flex: none; }
+.misp-synchealth-kind { flex: none; font-size: 10px; color: #7a7a7a; }
+.misp-synchealth-bars { width: 90px; height: 14px; color: #a8a8a8; }
+.misp-synchealth-danger .misp-synchealth-bars { color: #7a7a7a; }
+.misp-synchealth-ago {
+  text-align: right;
+  font-family: 'Spline Sans Mono', ui-monospace, monospace;
+  font-size: 10px;
+  color: #7a7a7a;
+}
+.misp-synchealth-danger .misp-synchealth-ago { color: #da4f49; }
+.misp-synchealth-more { font-size: 11px; color: #7a7a7a; }
+
+/* ---- PunchCard --------------------------------------------------------- */
+.misp-punchcard-table { width: 100%; border-collapse: collapse; color: #a8a8a8; }
+.misp-punchcard-table th,
+.misp-punchcard-table td { padding: 2px 0; border: 0; background: transparent; vertical-align: middle; }
+.misp-punchcard-label {
+  width: 1%;
+  padding-right: 10px !important;
+  font-size: 11px;
+  font-weight: 400;
+  color: #a8a8a8;
+  white-space: nowrap;
+  text-align: left;
+}
+.misp-punchcard-cells svg { display: block; max-height: 14px; }
+.misp-punchcard-total {
+  width: 1%;
+  padding-left: 8px !important;
+  text-align: right;
+  font-family: 'Spline Sans Mono', ui-monospace, monospace;
+  font-size: 10px;
+  color: #7a7a7a;
+}

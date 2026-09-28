@@ -329,6 +329,69 @@ function thumbFeedList() {
   ]);
 }
 
+function thumbDotMap() {
+  // Dot-matrix world: rows of land dots, a few of them hot (solid).
+  const land = [
+    [20, 12, 7], [37, 12, 9], [22, 18, 9], [38, 18, 14], [26, 24, 5],
+    [42, 24, 12], [28, 30, 4], [46, 30, 4], [56, 30, 3], [29, 36, 2],
+  ];
+  const hot = new Set(['44,18', '46,18', '48,24']);
+  const dots = [];
+  for (const [x0, y, n] of land) {
+    for (let i = 0; i < n; i++) {
+      const cx = x0 + i * 2;
+      const isHot = hot.has(`${cx},${y}`);
+      dots.push(shape('circle', {
+        cx, cy: y, r: isHot ? 1.2 : 0.7,
+        fill: 'currentColor', stroke: 'none', opacity: isHot ? 1 : 0.4,
+      }));
+    }
+  }
+  return svg(dots);
+}
+
+function thumbSparkline() {
+  // One thin line with a dashed forecast tail.
+  return svg([
+    shape('polyline', { points: '18,32 24,29 30,30 36,24 42,25 48,19 52,17', 'stroke-width': 1.2 }),
+    shape('polyline', { points: '52,17 57,14 62,11', 'stroke-width': 1.2, 'stroke-dasharray': '2 2', opacity: 0.6 }),
+  ]);
+}
+
+function thumbSyncHealth() {
+  // Rows of status dot + micro bars + short age label.
+  const row = (y, heights) => [
+    shape('circle', { cx: 19, cy: y, r: 1.8, fill: 'currentColor', stroke: 'none' }),
+    shape('rect', { x: 23, y: y - 1.5, width: 12, height: 3, rx: 1.2, fill: 'currentColor', stroke: 'none', opacity: 0.55 }),
+    ...heights.map((h, i) => shape('rect', {
+      x: 39 + i * 3, y: y + 2 - h, width: 2, height: h, fill: 'currentColor', stroke: 'none', opacity: 0.7,
+    })),
+    shape('rect', { x: 58, y: y - 1, width: 4, height: 2, rx: 1, fill: 'currentColor', stroke: 'none', opacity: 0.4 }),
+  ];
+  return svg([
+    ...row(13, [2, 3, 2, 4, 3, 4]),
+    ...row(22.5, [3, 2, 4, 2, 3, 2]),
+    ...row(32, [3, 2, 1, 0.5, 0.5, 0.5]),
+  ]);
+}
+
+function thumbPunchCard() {
+  // Label bars + rows of square blocks of varying intensity.
+  const nodes = [];
+  for (let row = 0; row < 4; row++) {
+    const y = 11 + row * 6.5;
+    nodes.push(shape('rect', { x: 16, y: y + 1, width: 10, height: 2.5, rx: 1, fill: 'currentColor', stroke: 'none', opacity: 0.5 }));
+    for (let col = 0; col < 9; col++) {
+      const level = (row * 5 + col * 3) % 7;
+      nodes.push(shape('rect', {
+        x: 30 + col * 3.6, y, width: 2.8, height: 4.5, rx: 0.5,
+        fill: 'currentColor', stroke: 'none', opacity: level > 4 ? 1 : 0.12 + level * 0.12,
+      }));
+    }
+  }
+  return svg(nodes);
+}
+
 function thumbGeneric() {
   return svg([
     shape('rect', { x: 22, y: 14, width: 36, height: 17, rx: 2 }),
@@ -358,6 +421,10 @@ const REGISTRY = {
   QueueList:      thumbQueueList,
   HealthList:     thumbHealthList,
   PewPewMap:      thumbPewPewMap,
+  DotMap:         thumbDotMap,
+  Sparkline:      thumbSparkline,
+  SyncHealth:     thumbSyncHealth,
+  PunchCard:      thumbPunchCard,
 };
 
 /**
