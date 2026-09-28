@@ -380,6 +380,7 @@ class ACLComponent extends Component
             'export' => array('*'),
             'exportChoice' => array('*'),
             'exportModule' => array('*'),
+            'facetCounts' => array('*'),
             'filterEventIdsForPush' => array('perm_sync'),
             'filterEventIndex' => array('*'),
             'freeTextImport' => array('perm_add'),

@@ -83,7 +83,7 @@ class EventsController extends AppController
         ]);
 
         // if not admin or own org, check private as well..
-        if (!$this->_isSiteAdmin() && in_array($this->request->action, ['index', 'proposalEventIndex'], true)) {
+        if (!$this->_isSiteAdmin() && in_array($this->request->action, ['index', 'proposalEventIndex', 'facetCounts'], true)) {
             $conditions = $this->Event->createEventConditions($this->Auth->user());
             if ($this->userRole['perm_sync'] && $this->Auth->user('Server')['push_rules']) {
                 $conditions['AND'][] = $this->Event->filterRulesToConditions($this->Auth->user('Server')['push_rules']);
@@ -842,6 +842,193 @@ class EventsController extends AppController
             $this->layout = false;
             $this->render('ajax/index');
         }
+    }
+
+    /**
+     * Facet counts for the OvermindFi events index: how many events each
+     * facet row would match next to the other filters in the URL (a group
+     * ignores its own filter, so its rows stay pickable). Visibility is
+     * index()'s: the ACL conditions beforeFilter() puts in $this->paginate,
+     * plus __setIndexFilterConditions() for the filters.
+     *
+     * @return CakeResponse
+     */
+    public function facetCounts()
+    {
+        $this->request->allowMethod(['get']);
+        $aclConditions = $this->paginate['conditions'] ?? [];
+
+        // Each search filter builds its conditions on its own, so build each
+        // once and recombine per group. null = matches nothing.
+        $build = function (array $args) {
+            $saved = $this->paginate['conditions'] ?? null;
+            $this->paginate['conditions'] = [];
+            $urlparams = '';
+            $nothing = false;
+            $this->__setIndexFilterConditions($args, $urlparams, $nothing);
+            $and = $this->paginate['conditions']['AND'] ?? [];
+            $this->paginate['conditions'] = $saved;
+            return $nothing ? null : $and;
+        };
+        $pieces = [];
+        foreach ($this->passedArgs as $key => $value) {
+            if (is_string($key) && stripos($key, 'search') === 0) {
+                $pieces[] = [strtolower(substr($key, 6)), $build([$key => $value])];
+            }
+        }
+        $without = function (array $ownKeys, array $extra = []) use ($aclConditions, $pieces) {
+            $conditions = $aclConditions;
+            foreach ($pieces as $piece) {
+                if (!in_array($piece[0], $ownKeys, true)) {
+                    $extra[] = $piece[1];
+                }
+            }
+            foreach ($extra as $and) {
+                if ($and === null) {
+                    return null;
+                }
+                foreach ($and as $condition) {
+                    $conditions['AND'][] = $condition;
+                }
+            }
+            return $conditions;
+        };
+        $count = function ($conditions) {
+            if ($conditions === null) {
+                return 0;
+            }
+            return (int)$this->Event->find('count', [
+                'conditions' => $conditions,
+                'recursive' => -1,
+            ]);
+        };
+        $countBy = function ($conditions, $field, $limit = null) {
+            if ($conditions === null) {
+                return [];
+            }
+            $rows = $this->Event->find('all', [
+                'conditions' => $conditions,
+                'fields' => ['Event.' . $field, 'COUNT(Event.id) AS count'],
+                'group' => ['Event.' . $field],
+                'order' => ['COUNT(Event.id) DESC'],
+                'limit' => $limit,
+                'recursive' => -1,
+            ]);
+            return Hash::combine($rows, '{n}.Event.' . $field, '{n}.0.count');
+        };
+
+        $groups = [];
+
+        $threatColours = [1 => '#da4f49', 2 => '#f89406', 3 => '#5bb75b', 4 => '#7a7a7a'];
+        $threatCounts = $countBy($without(['threatlevel']), 'threat_level_id');
+        $items = [];
+        foreach ($this->Event->ThreatLevel->listThreatLevels() as $id => $name) {
+            $items[] = [
+                'key' => 'threatlevel',
+                'value' => (string)$id,
+                'label' => ucfirst(strtolower($name)),
+                'count' => (int)($threatCounts[$id] ?? 0),
+                'color' => $threatColours[$id] ?? null,
+                'multi' => true,
+            ];
+        }
+        $groups[] = ['label' => __('Threat level'), 'items' => $items];
+
+        if (Configure::read('MISP.tagging')) {
+            $tlpNames = ['tlp:red', 'tlp:amber+strict', 'tlp:amber', 'tlp:green', 'tlp:clear', 'tlp:white'];
+            $tags = $this->Event->EventTag->Tag->find('all', [
+                'conditions' => ['Tag.name' => $tlpNames],
+                'fields' => ['Tag.id', 'Tag.name', 'Tag.colour'],
+                'recursive' => -1,
+            ]);
+            $tags = array_column(array_column($tags, 'Tag'), null, 'name');
+            // The tag filter matches event OR attribute tags; so do these.
+            $AttributeTag = ClassRegistry::init('AttributeTag');
+            $eventTagTable = $this->Event->EventTag->getDataSource()->fullTableName($this->Event->EventTag);
+            $attributeTagTable = $AttributeTag->getDataSource()->fullTableName($AttributeTag);
+            $base = $without(['tag', 'tags']);
+            $items = [];
+            foreach ($tlpNames as $name) {
+                if (!isset($tags[$name])) {
+                    continue;
+                }
+                $tagId = (int)$tags[$name]['id'];
+                $conditions = $base;
+                if ($conditions !== null) {
+                    $conditions['AND'][] = ['OR' => [
+                        "Event.id IN (SELECT event_id FROM $eventTagTable WHERE tag_id = $tagId)",
+                        "Event.id IN (SELECT event_id FROM $attributeTagTable WHERE tag_id = $tagId)",
+                    ]];
+                }
+                $items[] = [
+                    'key' => 'tag',
+                    'value' => $name,
+                    'label' => $name,
+                    'count' => $count($conditions),
+                    'color' => $tags[$name]['colour'],
+                    'multi' => true,
+                ];
+            }
+            if ($items) {
+                $groups[] = ['label' => __('TLP'), 'items' => $items];
+            }
+        }
+
+        if (Configure::read('MISP.showorg')) {
+            $orgCounts = $countBy($without(['org']), 'orgc_id', 6);
+            $names = empty($orgCounts) ? [] : $this->Event->Orgc->find('list', [
+                'conditions' => ['Orgc.id' => array_keys($orgCounts)],
+                'fields' => ['Orgc.id', 'Orgc.name'],
+            ]);
+            $items = [];
+            foreach ($orgCounts as $id => $n) {
+                if (!isset($names[$id])) {
+                    continue;
+                }
+                $name = $names[$id];
+                // The org filter takes a name or an id; a name the URL or the
+                // filter would misread ('/', '|', '!x', a number) goes by id.
+                $byId = preg_match('~[/|]|^!|^\d+$~', $name) || Validation::uuid($name);
+                $items[] = [
+                    'key' => 'org',
+                    'value' => $byId ? (string)$id : $name,
+                    'match' => [(string)$id, $name],
+                    'label' => $name,
+                    'count' => (int)$n,
+                    'multi' => true,
+                ];
+            }
+            if ($items) {
+                $groups[] = ['label' => __('Creator org'), 'items' => $items];
+            }
+        }
+
+        $state = ['published', 'hasproposal'];
+        $groups[] = ['label' => __('State'), 'items' => [
+            [
+                'key' => 'published',
+                'value' => '1',
+                'label' => __('Published'),
+                'count' => $count($without($state, [$build(['searchpublished' => 1])])),
+                'multi' => false,
+            ],
+            [
+                'key' => 'published',
+                'value' => '0',
+                'label' => __('Draft'),
+                'count' => $count($without($state, [$build(['searchpublished' => 0])])),
+                'multi' => false,
+            ],
+            [
+                'key' => 'hasproposal',
+                'value' => '1',
+                'label' => __('Has proposals'),
+                'count' => $count($without($state, [$build(['searchhasproposal' => 1])])),
+                'multi' => false,
+            ],
+        ]];
+
+        return $this->RestResponse->viewData(['groups' => $groups], 'json');
     }
 
     /**
