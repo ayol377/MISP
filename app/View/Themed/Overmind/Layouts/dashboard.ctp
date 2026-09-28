@@ -30,6 +30,7 @@
  * midnight overlay) is loaded after mainOvermind so its tokens
  * and selectors win where they overlap.
  */
+$isFi = ($themeVariant ?? null) === 'fi'; // OvermindFi side-rail skin
 ?>
 <!DOCTYPE html>
 <html lang="<?= Configure::read('Config.language') === 'eng' ? 'en' : Configure::read('Config.language') ?>">
@@ -62,6 +63,9 @@
             ['dashboard/overmind', ['preload' => true]],
             ['print', ['media' => 'print']],
         ];
+        if ($isFi) {
+            $css[] = ['misp-fi-theme', ['preload' => true]];
+        }
         if (Configure::read('MISP.custom_css')) {
             $css[] = preg_replace('/\.css$/i', '', Configure::read('MISP.custom_css'));
         }
@@ -80,10 +84,10 @@
         ]);
     ?>
 </head>
-<body class="misp-dashboard-page"
+<body class="misp-dashboard-page<?= $isFi ? ' mfi-shell' : '' ?>"
       data-controller="<?= h($this->params['controller']) ?>"
       data-action="<?= h($this->params['action']) ?>">
-    <div class="main-wrapper">
+    <?php if ($isFi): ?><div class="mfi-app"><?php else: ?><div class="main-wrapper"><?php endif; ?>
         <header>
             <?php
                 // BS5 Overmind navbar — same build pattern as
@@ -103,13 +107,14 @@
                     'themesEnabled' => $themesEnabled,
                 ];
                 $menus = $this->Navbar->build($context);
-                echo $this->element('navbar', [
+                echo $this->element($isFi ? 'sidebar' : 'navbar', [
                     'menus' => $menus,
                     'baseurl' => $baseurl,
                     'me' => $me ?? null,
                 ]);
             ?>
         </header>
+    <?php if ($isFi): ?><div class="mfi-col"><div class="main-wrapper"><?php endif; ?>
         <main role="main" class="content" style="padding-top:0;">
             <div id="flashOverlay">
                 <div id="flashContainer">
@@ -123,6 +128,7 @@
     </div>
 
     <?= $this->element('footerBS5') ?>
+    <?php if ($isFi): ?></div></div><?php // .mfi-col, .mfi-app ?><?php endif; ?>
     <?= $this->element('sql_dump') ?>
 
     <!-- Modals, toasts, popovers and the loading overlay. Shared with

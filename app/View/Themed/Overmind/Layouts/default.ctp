@@ -12,6 +12,9 @@ $currentAction = $this->params['action'];
 
 $useBootstrap5 = OvermindPages::isMigrated($currentController, $currentAction);
 
+// OvermindFi variant (AppController sets $themeVariant): dark side-rail skin
+$isFi = ($themeVariant ?? null) === 'fi';
+
 
 // Overmind pages which own the whole viewport (no navbar, no footer, no header strip)
 $isAuthPage  = $useBootstrap5 && OvermindPages::isAuthPage($currentController, $currentAction);
@@ -61,7 +64,7 @@ if (substr($currentAction, 0, 6) === 'admin_') {
 
 
 <!DOCTYPE html>
-<html lang="<?= h($htmlLang) ?>">
+<html lang="<?= h($htmlLang) ?>"<?= $isFi ? ' data-bs-theme="dark"' : '' ?>>
 <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -80,6 +83,9 @@ if (substr($currentAction, 0, 6) === 'admin_') {
                 ['misp-iconify', ['preload' => true]],
                 ['onboarding', ['preload' => true]],
             ];
+            if ($isFi) {
+                $css[] = ['misp-fi-theme', ['preload' => true]];
+            }
             $js = [
                 ['tom-select.complete.min', ['preload' => true]],
             ];
@@ -123,8 +129,10 @@ if (substr($currentAction, 0, 6) === 'admin_') {
     <?php endif; ?>
     <script>(function(){if(localStorage.getItem('darkMode')==='true'){document.documentElement.setAttribute('data-bs-theme','dark');}})()</script>
 </head>
-<body class="bg-light" data-controller="<?= h($currentController) ?>" data-action="<?= h($currentAction) ?>">
-    <div class="main-wrapper">
+<?php $fiShell = $isFi && $useBootstrap5 && !$isAuthPage; ?>
+<body class="bg-light<?= $fiShell ? ' mfi-shell' : '' ?>" data-controller="<?= h($currentController) ?>" data-action="<?= h($currentAction) ?>">
+    <?php // fi shell: .mfi-app grid = [header > side rail, .mfi-col > page + footer] ?>
+    <?php if ($fiShell): ?><div class="mfi-app"><?php else: ?><div class="main-wrapper"><?php endif; ?>
         <!-- Navbar -->
         <header>
             <?php
@@ -147,7 +155,7 @@ if (substr($currentAction, 0, 6) === 'admin_') {
                         'theme' => $theme ?? null,
                         'themesEnabled' => $themesEnabled ?? false,
                     ];
-                    echo $this->element('navbar', [
+                    echo $this->element($isFi ? 'sidebar' : 'navbar', [
                         'menus' => $this->Navbar->build($context),
                         'baseurl' => $baseurl,
                         'me' => $me ?? null,
@@ -155,6 +163,7 @@ if (substr($currentAction, 0, 6) === 'admin_') {
                 }
             ?>
         </header>
+    <?php if ($fiShell): ?><div class="mfi-col"><div class="main-wrapper"><?php endif; ?>
         <?php if ($useBootstrap5 && !$isAuthPage && Configure::read('debug') > 0): ?>
             <!-- Debug strip. mispOvermind.js moves Cake's .cake-error blocks
                  in here and badges the count. -->
@@ -231,6 +240,7 @@ if (substr($currentAction, 0, 6) === 'admin_') {
             echo $this->element('footerBS5');
         }
     ?>
+    <?php if ($fiShell): ?></div></div><?php // .mfi-col, .mfi-app ?><?php endif; ?>
 
     <!-- Cake's query log, rendered only when debug is on -->
     <?= $this->element('sql_dump') ?>
