@@ -37,6 +37,7 @@
             ['misp-fi-theme', ['preload' => true]],
             ['fi/rail', ['preload' => true]],
             ['fi/screens', ['preload' => true]],
+            ['fi/dashboard', ['preload' => true]],
         ];
         if (Configure::read('MISP.custom_css')) {
             $css[] = preg_replace('/\.css$/i', '', Configure::read('MISP.custom_css'));

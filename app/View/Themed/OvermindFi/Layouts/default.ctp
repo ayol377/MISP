@@ -12,7 +12,14 @@ App::uses('I18n', 'I18n');
 $currentController = $this->params['controller'];
 $currentAction = $this->params['action'];
 
-$useBootstrap5 = OvermindPages::isMigrated($currentController, $currentAction);
+// Pages Overmind still renders with Bootstrap 2 but fi has redesigned
+// (with a BS5 template under Themed/OvermindFi/). Keys are normalised
+// controller => [normalised actions], as OvermindPages::normalise().
+$fiBs5Pages = [
+    'attributes' => ['search'],
+];
+$useBootstrap5 = OvermindPages::isMigrated($currentController, $currentAction)
+    || in_array(OvermindPages::normalise($currentAction), $fiBs5Pages[OvermindPages::normalise($currentController)] ?? [], true);
 
 
 // Overmind pages which own the whole viewport (no navbar, no footer, no header strip)
@@ -79,6 +86,9 @@ if (substr($currentAction, 0, 6) === 'admin_') {
                 ['onboarding', ['preload' => true]],
                 ['misp-fi-theme', ['preload' => true]],
                 ['fi/screens', ['preload' => true]],
+                ['fi/events-index', ['preload' => true]],
+                ['fi/event-view', ['preload' => true]],
+                ['fi/attribute-search', ['preload' => true]],
             ];
             $js = [
                 ['tom-select.complete.min', ['preload' => true]],
