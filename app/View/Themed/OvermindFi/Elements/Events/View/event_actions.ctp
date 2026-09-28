@@ -1,6 +1,6 @@
 <?php
 /*
- * OvermindFi: the event-view actions as the header "More" dropdown.
+ * OvermindFi: the event-view actions as the header's quiet "⋯" overflow.
  * The action list below is Overmind's event_actions.ctp unchanged (same
  * ACL checks); only the rendering at the bottom differs.
  */
@@ -234,9 +234,11 @@ $itemClass = function (array $action) {
 };
 ?>
 <div class="dropdown" data-tour="quick-actions">
-    <button type="button" class="btn btn-outline-secondary dropdown-toggle"
-            data-bs-toggle="dropdown" aria-expanded="false">
-        <?= __('More') ?>
+    <button type="button" class="fi-evw-btn fi-evw-btn-text fi-evw-overflow"
+            data-bs-toggle="dropdown" aria-expanded="false"
+            title="<?= __('More event actions') ?>"
+            aria-label="<?= __('More event actions') ?>">
+        <i class="fas fa-ellipsis"></i>
     </button>
     <ul class="dropdown-menu dropdown-menu-end fi-evw-more">
         <?php foreach ($actions as $action): ?>

@@ -1,574 +1,600 @@
 <?php
 /*
- * OvermindFi: the event view's attribute table. A copy of Overmind's
- * Elements/Attributes/index.ctp (the event-view path of it: this is only
- * rendered by Events/view_attributes.ctp), with the columns reordered to
- * the mockup (Category, Type, Value, Tags, IDS, Corr.) and every other
- * column, row action, filter and mass-select kept after them.
+ * OvermindFi event view: the attribute table (mockup 1e). Rendered only by
+ * Events/view_attributes.ctp, from the rows EventsController::viewAttributes
+ * hands over (flat attribute arrays).
+ *
+ * Six columns: Category, Type, Value, Tags, IDS, Corr. Everything else
+ * Overmind's Elements/Attributes/index.ctp showed as a column (distribution,
+ * galaxies, related events, feed hits, sightings, correlation toggle, analyst
+ * data, dates) lives in a per-row detail drawer, opened by clicking the row,
+ * its Corr. count or "Details" in the row's "⋯" menu. The menu carries every
+ * row action upstream had. Filters are the upstream filter_bar, folded
+ * behind the tab bar's "Filter" button; selection is the upstream checkbox
+ * and multi-select toolbar. Cell widgets reuse the upstream field elements,
+ * so their ACL checks and scripts (IDS / correlation toggles, sightings) are
+ * theirs.
  */
-
-// Temporary fix to avoid errors as these variables are defined in AttributesController
-$categoryOptions = isset($categoryOptions) ? $categoryOptions : null;
-$typeOptions = isset($typeOptions) ? $typeOptions : null;
-$orgOptions = isset($orgOptions) ? $orgOptions : null;
-$tagOptions = isset($tagOptions) ? $tagOptions : null;
-$galaxyOptions = isset($galaxyOptions) ? $galaxyOptions : null;
-
-/**
- * ==============================================================
- * Definition of fields displayed in the scaffold
- * ==============================================================
- *
- * Possible fields for each entry:
- *
- * - name           : Label displayed in the table
- * - sort           : Database field used for sorting
- * - data_path      : Path to the data in the $events array
- * - element        : Template used for rendering
- * - url            : Associated link (supports %id%)
- * - card_section   : Display section in card mode
- * - display_in     : ['table', 'card']
- * - mode           : Specific option for certain elements (ex: timestamp)
- * - actions        : Available actions (for element = selector)
- *
- * Fields specific to actions:
- *
- * - type           : modal | navigate | toggle | copy | divider
- * - label          : Displayed text
- * - label_on/off   : Text for toggle
- * - icon           : FontAwesome icon
- * - icon_on/off    : Toggle icon
- * - url            : URL (supports %id% and %action%)
- * - data_path      : Value to copy (for type = copy)
- * - copy_message   : Toast text shown after copy (for type = copy)
- * - class          : CSS class
- * - requirement    : Permission check function
- * - state_path     : Path to the boolean value (toggle)
- */
-
-$firstRow   = !empty($attributes) ? reset($attributes) : [];
-$model      = !empty($firstRow['Attribute']) ? 'Attribute' : null;
+$eventId = (int)$event['Event']['id'];
 $_canModify = !empty($mayModify);
 $_canPropose = !empty($me['Role']['perm_add']);
 $_canAnalystData = !empty($me['Role']['perm_analyst_data']);
-// Enrichment / Cortex expansion (misp-modules): the "Enrich" actions are only
-// offered when the matching services plugin is enabled and the user can add data.
+$_canSighting = !empty($isAclSighting);
+$_canModifyProposal = !empty($isSiteAdmin) || $_canModify;
+// Enrichment / Cortex expansion (misp-modules): offered only when the
+// matching services plugin is enabled and the user can modify.
 $_enrichmentEnabled = (bool)Configure::read('Plugin.Enrichment_services_enable');
 $_cortexEnabled = (bool)Configure::read('Plugin.Cortex_services_enable');
-// Analyst data is only attached to attributes in the event view (fetchPaginatedAttributes).
-$inEventView = empty($show_event_id) && !empty($event['Event']['id']);
-// Extended / extending event view: rows can belong to any event of the merged
-// set, so each one says where it comes from and wears its origin's accent.
+$_hoverEnrich = Configure::read('Plugin.Enrichment_hover_enable') && $_canPropose;
+$_hoverClickOnly = (bool)Configure::read('Plugin.Enrichment_hover_popover_only');
+// Extended / extending event view: rows can belong to any event of the
+// merged set, so each one says where it comes from and wears its origin's
+// accent, and the row actions ask the origin event.
 $extensionEvents = $extensionEvents ?? [];
 $inExtensionView = count($extensionEvents) > 1;
+$canTagAttr = $this->Acl->canModifyTag($event);
 
-$path = function($field) use ($model) {
-    if (empty($model)) return $field;
-    if (empty($field)) return $model;
-    return $model . '.' . $field;
+$origin = function ($row) use ($extensionEvents) {
+    return $extensionEvents[(int)($row['event_id'] ?? 0)] ?? null;
+};
+$_rowMayModify = function ($row) use ($_canModify, $inExtensionView, $origin) {
+    return $inExtensionView ? !empty($origin($row)['mayModify']) : $_canModify;
+};
+$_rowMayTag = function ($row) use ($canTagAttr, $inExtensionView, $origin) {
+    return $inExtensionView ? !empty($origin($row)['mayModifyTag']) : $canTagAttr;
+};
+$live = function ($row) {
+    return empty($row['deleted']) && empty($row['is_proposal']);
 };
 
-$canTagAttr = false;
-if (empty($show_event_id) && !empty($event['Event']['id'])) {
-    $canTagAttr = $this->Acl->canModifyTag($event);
-}
-
-// In an extended / extending view a row may belong to an event you cannot
-// touch, so the row actions ask the origin event rather than the one whose
-// page you are on.
-$_rowMayModify = function ($row) use ($_canModify, $inExtensionView, $extensionEvents) {
-    if (!$inExtensionView) {
-        return $_canModify;
-    }
-    $origin = $extensionEvents[(int)($row['event_id'] ?? 0)] ?? null;
-    return $origin !== null && !empty($origin['mayModify']);
-};
-$_rowMayTag = function ($row) use ($canTagAttr, $inExtensionView, $extensionEvents) {
-    if (!$inExtensionView) {
-        return $canTagAttr;
-    }
-    $origin = $extensionEvents[(int)($row['event_id'] ?? 0)] ?? null;
-    return $origin !== null && !empty($origin['mayModifyTag']);
-};
-
-$fields = [
-    [
-        'element' => 'checkbox',
-        'data_path' => 'Attribute.id',
-        'card_section' => 'selector',
-    ]
-];
-
-$fields = array_merge($fields, [
-    [
-        'name' => __('Distribution'),
-        'data_path' => $path('distribution'),
-        'element' => 'distribution',
-        'card_section' => 'top',
-        'display_in' => ['card']
-    ],
-    [
-        'name' => __('Category'),
-        'sort' => $path('category'),
-        'data_path' => $path('category'),
-        'element' => 'category',
-        'card_section' => 'attribute',
-        'display_in' => ['table', 'card']
-    ],
-    [
-        'name' => __('Type'),
-        'sort' => $path('type'),
-        'data_path' => $path('type'),
-        'element' => 'type',
-        'card_section' => 'attribute',
-        'display_in' => ['table', 'card']
-    ],
-    [
-        'name' => __('Value'),
-        'data_path' => $path(''),
-        'element' => 'attribute_value',
-        'card_section' => 'title',
-        'display_in' => ['table', 'card']
-    ],
-]);
-
-$fields = array_merge($fields, [
-    [
-        'name' => __('Tags'),
-        'data_path' => $path('AttributeTag'),
-        'element' => 'tag_list',
-        'card_section' => 'tag',
-        'display_in' => ['table', 'card'],
-        // Cell actions are handled by the tag_list element
-        'add_tag' => $_rowMayTag,
-        'add_tag_url' => $baseurl . '/attributes/editAttributeTags/%id%',
-        'add_tag_id_path' => $path('id'),
-        'add_relationship_url' => $baseurl
-            . '/attributes/editAttributeTagRelationships/%id%',
-    ],
-    [
-        'name' => __('Galaxy'),
-        'data_path' => $path('Galaxy'),
-        'element' => 'galaxy',
-        'card_section' => 'galaxy',
-        'display_in' => ['table', 'card'],
-        // Cell actions are handled by the galaxy element
-        'add_galaxy' => $_rowMayTag,
-        'add_galaxy_url' => $baseurl . '/attributes/editAttributeGalaxies/%id%',
-        'add_galaxy_id_path' => $path('id'),
-        'add_galaxy_relationship_url' => $baseurl
-            . '/attributes/editAttributeGalaxyRelationships/%id%',
-    ],
-    [
-        'name' => __('IDS'),
-        'data_path' => $path('to_ids'),
-        'element' => 'ids',
-        'card_section' => 'top',
-        'display_in' => ['table', 'card']
-    ],
-    [
-        'name' => __('Corr.'),
-        'title' => __('Related events'),
-        'element' => 'relatedEvents',
-        'card_section' => 'top',
-        'display_in' => ['table', 'card']
-    ],
-    [
-        'name' => __('Correlate'),
-        'data_path' => $path('disable_correlation'),
-        'element' => 'correlate',
-        'card_section' => 'top',
-        'display_in' => ['table', 'card']
-    ],
-    [
-        'name' => __('Feed hits'),
-        'element' => 'feedHits',
-        'card_section' => 'meta',
-        'display_in' => ['table', 'card']
-    ],
-    [
-        'name' => __('Last Modified'),
-        'data_path' => $path('timestamp'),
-        'element' => 'timestamp',
-        'mode' => 'modified',
-        'card_section' => 'meta',
-        'display_in' => ['card']
-    ],
-    [
-        'name' => __('Sightings'),
-        'element' => 'sightings',
-        'sightings' => isset($sightingsData) ? $sightingsData : ['data' => [], 'csv' => []],
-        'card_section' => 'meta',
-        'display_in' => ['table', 'card']
-    ],
-    [
-        'name' => __('Analyst data'),
-        'element' => 'analyst_data_badges',
-        'note_path' => $path('Note'),
-        'opinion_path' => $path('Opinion'),
-        'relationship_path' => $path('Relationship'),
-        'relationship_inbound_path' => $path('RelationshipInbound'),
-        'uuid_path' => $path('uuid'),
-        'object_type' => 'Attribute',
-        'requirement' => $inEventView,
-        'card_section' => 'meta',
-        'display_in' => ['table', 'card'],
-    ],
-    [
-        'name' => __('Actions'),
-        'element' => 'row_actions',
-        'data_path' => 'Attribute.id',
-        'card_section' => 'extra',
-        'actions' => [
-            [
-                'type' => 'copy',
-                'label' => __('Copy UUID'),
-                'icon' => 'copy',
-                'data_path' => $path('uuid'),
-                'copy_message' => __('UUID copied to clipboard'),
-            ],
-            [
-                'type' => 'divider',
-                'requirement' => function($row) use ($inEventView, $_canAnalystData) {
-                    return $inEventView && $_canAnalystData && empty($row['deleted']) && empty($row['is_proposal']);
-                }
-            ],
-            [
-                'type' => 'modal',
-                'label' => __('Add note'),
-                'icon' => 'text-primary misp-icon misp-icon-analyst-note misp-simple',
-                'url' => $baseurl . '/analystData/add/Note/%uuid%/Attribute',
-                'url_params_data_paths' => ['uuid' => $path('uuid')],
-                'requirement' => function($row) use ($inEventView, $_canAnalystData) {
-                    return $inEventView && $_canAnalystData && empty($row['deleted']) && empty($row['is_proposal']);
-                }
-            ],
-            [
-                'type' => 'modal',
-                'label' => __('Add opinion'),
-                'icon' => 'text-success misp-icon misp-icon-analyst-opinion misp-simple',
-                'url' => $baseurl . '/analystData/add/Opinion/%uuid%/Attribute',
-                'url_params_data_paths' => ['uuid' => $path('uuid')],
-                'requirement' => function($row) use ($inEventView, $_canAnalystData) {
-                    return $inEventView && $_canAnalystData && empty($row['deleted']) && empty($row['is_proposal']);
-                }
-            ],
-            [
-                'type' => 'modal',
-                'label' => __('Add relationship'),
-                'icon' => 'text-correlation fas fa-diagram-project',
-                'url' => $baseurl . '/analystData/add/Relationship/%uuid%/Attribute',
-                'url_params_data_paths' => ['uuid' => $path('uuid')],
-                'requirement' => function($row) use ($inEventView, $_canAnalystData) {
-                    return $inEventView && $_canAnalystData && empty($row['deleted']) && empty($row['is_proposal']);
-                }
-            ],
-            [
-                'type' => 'divider',
-                'requirement' => function($row) use ($_rowMayModify, $_enrichmentEnabled, $_cortexEnabled) {
-                    return $_rowMayModify($row) && ($_enrichmentEnabled || $_cortexEnabled) && empty($row['deleted']) && empty($row['is_proposal']);
-                }
-            ],
-            [
-                'type' => 'modal',
-                'label' => __('Enrich'),
-                'icon' => 'fas fa-wand-magic-sparkles text-enrichment',
-                'url' => $baseurl . '/events/queryEnrichment/%id%/0/Enrichment/Attribute',
-                'requirement' => function($row) use ($_rowMayModify, $_enrichmentEnabled) {
-                    return $_rowMayModify($row) && $_enrichmentEnabled && empty($row['deleted']) && empty($row['is_proposal']);
-                }
-            ],
-            [
-                'type' => 'modal',
-                'label' => __('Enrich (Cortex)'),
-                'icon' => 'eye',
-                'url' => $baseurl . '/events/queryEnrichment/%id%/0/Cortex/Attribute',
-                'requirement' => function($row) use ($_rowMayModify, $_cortexEnabled) {
-                    return $_rowMayModify($row) && $_cortexEnabled && empty($row['deleted']) && empty($row['is_proposal']);
-                }
-            ],
-            [
-                'type' => 'modal',
-                'label' => __('Propose change'),
-                'icon' => 'comment-dots',
-                'url' => $baseurl . '/shadow_attributes/edit/%id%',
-                'requirement' => function($row) use ($_canPropose) {
-                    return  $_canPropose && empty($row['is_proposal']) && empty($row['deleted']);
-                }
-            ],
-            [
-                'type' => 'divider',
-                'requirement' => function($row) use ($_rowMayModify) {
-                    return $_rowMayModify($row) && empty($row['is_proposal']);
-                }
-            ],
-            [
-                'type' => 'modal',
-                'label' => __('Edit'),
-                'icon' => 'pen-to-square',
-                'url' => $baseurl . '/attributes/edit/%id%',
-                'requirement' => function($row) use ($_rowMayModify) {
-                    return $_rowMayModify($row) && empty($row['deleted']) && empty($row['is_proposal']);
-                }
-            ],
-            [
-                'type' => 'modal',
-                'label' => __('Restore'),
-                'icon' => 'rotate-left',
-                'url' => $baseurl . '/attributes/restore/%id%',
-                'class' => 'text-success',
-                'requirement' => function($row) use ($_rowMayModify) {
-                    return $_rowMayModify($row) && !empty($row['deleted']) && empty($row['is_proposal']);
-                }
-            ],
-            [
-                'type' => 'modal',
-                'label' => __('Delete'),
-                'icon' => 'trash',
-                'url' => $baseurl . '/attributes/delete/%id%',
-                'class' => 'text-danger',
-                'requirement' => function($row) use ($_rowMayModify) {
-                    return $_rowMayModify($row) && empty($row['deleted']) && empty($row['is_proposal']);
-                }
-            ]
-        ]
-    ]
-]);
-
-
-
-/**
- * ==============================================================
- * Call the generic scaffold
- * ==============================================================
- *
- * Main parameters:
- *
- * - scaffold_data.data.data       : Main dataset
- * - scaffold_data.data.filter_bar    : Filter bar configuration
- * - scaffold_data.data.fields     : Column definitions
- * - item_url                     : Base URL for pagination / filters
- */
-
-$children = [
-    [
-        'type' => 'search',
-        'button' => 'Search',
-        'placeholder' => __('Filter by attribute value'),
-    ]
-];
-
-// Inside an event the attribute tab reloads itself over ajax and drives its own
-// URLs (Events/view_attributes.ctp). The global index has no such wrapper: its
-// controls write the filters AttributesController::index() harvests, and they
-// write them into the query string rather than into named URL segments - an
-// attribute value is free text, and `https://host/path/` cannot survive as a
-// path segment (see the `transport` note in filter_bar.ctp). This is the same
-// reason the default theme's attributes/search POSTs its expression field.
-if (!$inEventView) {
-    $children[0]['mode'] = 'legacy';
-    $children[0]['name'] = 'value';
-    $children[0]['chip_label'] = __('Value');
-} else {
-    // Inside an event the tab filters on `searchFor:`. Naming it here is what
-    // lets the bar render the term back into the box.
-    $children[0]['mode'] = 'legacy';
-    $children[0]['name'] = 'searchFor';
-}
-
-if (!empty($show_filters)) {
-    $myOrg = !empty($me['Organisation']['name'])
-        ? $me['Organisation']['name']
-        : $me['org_id'];
-    $children = array_merge($children, [
+/* ── row "⋯" menu: Overmind's row actions plus the ones its columns held ── */
+$checkboxField = ['element' => 'checkbox', 'data_path' => 'Attribute.id'];
+$actionsField = [
+    'element' => 'row_actions',
+    'data_path' => 'Attribute.id',
+    'actions' => [
         [
-            'type' => 'button',
-            'label' => __('My attributes'),
-            'icon' => 'misp-icon misp-icon-user1 misp-simple',
-            'class' => 'btn btn-primary',
-            'url' => $baseurl . '/attributes/index?email=' . urlencode($me['email'])
+            'type' => 'js',
+            'label' => __('Details'),
+            'icon' => 'fas fa-angles-down',
+            'onclick' => 'fiEvwToggleRow(this);',
+        ],
+        [
+            'type' => 'modal',
+            'label' => __('Edit'),
+            'icon' => 'pen-to-square',
+            'url' => $baseurl . '/attributes/edit/%id%',
+            'requirement' => function ($row) use ($_rowMayModify, $live) {
+                return $_rowMayModify($row) && $live($row);
+            },
+        ],
+        [
+            'type' => 'modal',
+            'label' => __('Propose change'),
+            'icon' => 'comment-dots',
+            'url' => $baseurl . '/shadow_attributes/edit/%id%',
+            'requirement' => function ($row) use ($_canPropose, $live) {
+                return $_canPropose && $live($row);
+            },
+        ],
+        [
+            'type' => 'modal',
+            'label' => __('Add tag'),
+            'icon' => 'misp-icon misp-icon-tag misp-simple',
+            'url' => $baseurl . '/attributes/editAttributeTags/%id%',
+            'size' => 'xl',
+            'requirement' => function ($row) use ($_rowMayTag, $live) {
+                return $_rowMayTag($row) && $live($row);
+            },
+        ],
+        [
+            'type' => 'modal',
+            'label' => __('Add galaxy cluster'),
+            'icon' => 'misp-icon misp-icon-galaxy misp-simple',
+            'url' => $baseurl . '/attributes/editAttributeGalaxies/%id%',
+            'size' => 'xl',
+            'requirement' => function ($row) use ($_rowMayTag, $live) {
+                return $_rowMayTag($row) && $live($row);
+            },
+        ],
+        [
+            'type' => 'modal',
+            'label' => __('Sightings…'),
+            'icon' => 'misp-icon misp-icon-sighting misp-simple',
+            'url' => $baseurl . '/sightings/advanced/%id%/attribute',
+            'size' => 'lg',
+            'requirement' => function ($row) use ($_canSighting, $live) {
+                return $_canSighting && $live($row);
+            },
+        ],
+        [
+            'type' => 'divider',
+            'requirement' => function ($row) use ($_rowMayModify, $_enrichmentEnabled, $_cortexEnabled, $live) {
+                return $_rowMayModify($row) && ($_enrichmentEnabled || $_cortexEnabled) && $live($row);
+            },
+        ],
+        [
+            'type' => 'modal',
+            'label' => __('Enrich'),
+            'icon' => 'fas fa-wand-magic-sparkles text-enrichment',
+            'url' => $baseurl . '/events/queryEnrichment/%id%/0/Enrichment/Attribute',
+            'requirement' => function ($row) use ($_rowMayModify, $_enrichmentEnabled, $live) {
+                return $_rowMayModify($row) && $_enrichmentEnabled && $live($row);
+            },
+        ],
+        [
+            'type' => 'modal',
+            'label' => __('Enrich (Cortex)'),
+            'icon' => 'eye',
+            'url' => $baseurl . '/events/queryEnrichment/%id%/0/Cortex/Attribute',
+            'requirement' => function ($row) use ($_rowMayModify, $_cortexEnabled, $live) {
+                return $_rowMayModify($row) && $_cortexEnabled && $live($row);
+            },
+        ],
+        [
+            'type' => 'divider',
+            'requirement' => function ($row) use ($_canAnalystData, $live) {
+                return $_canAnalystData && $live($row);
+            },
+        ],
+        [
+            'type' => 'modal',
+            'label' => __('Add note'),
+            'icon' => 'text-primary misp-icon misp-icon-analyst-note misp-simple',
+            'url' => $baseurl . '/analystData/add/Note/%uuid%/Attribute',
+            'url_params_data_paths' => ['uuid' => 'uuid'],
+            'requirement' => function ($row) use ($_canAnalystData, $live) {
+                return $_canAnalystData && $live($row);
+            },
+        ],
+        [
+            'type' => 'modal',
+            'label' => __('Add opinion'),
+            'icon' => 'text-success misp-icon misp-icon-analyst-opinion misp-simple',
+            'url' => $baseurl . '/analystData/add/Opinion/%uuid%/Attribute',
+            'url_params_data_paths' => ['uuid' => 'uuid'],
+            'requirement' => function ($row) use ($_canAnalystData, $live) {
+                return $_canAnalystData && $live($row);
+            },
+        ],
+        [
+            'type' => 'modal',
+            'label' => __('Add relationship'),
+            'icon' => 'text-correlation fas fa-diagram-project',
+            'url' => $baseurl . '/analystData/add/Relationship/%uuid%/Attribute',
+            'url_params_data_paths' => ['uuid' => 'uuid'],
+            'requirement' => function ($row) use ($_canAnalystData, $live) {
+                return $_canAnalystData && $live($row);
+            },
+        ],
+        ['type' => 'divider'],
+        [
+            'type' => 'copy',
+            'label' => __('Copy UUID'),
+            'icon' => 'copy',
+            'data_path' => 'uuid',
+            'copy_message' => __('UUID copied to clipboard'),
+        ],
+        [
+            'type' => 'modal',
+            'label' => __('Restore'),
+            'icon' => 'rotate-left',
+            'url' => $baseurl . '/attributes/restore/%id%',
+            'class' => 'text-success',
+            'requirement' => function ($row) use ($_rowMayModify) {
+                return $_rowMayModify($row) && !empty($row['deleted']) && empty($row['is_proposal']);
+            },
+        ],
+        [
+            'type' => 'modal',
+            'label' => __('Delete'),
+            'icon' => 'trash',
+            'url' => $baseurl . '/attributes/delete/%id%',
+            'class' => 'text-danger',
+            'requirement' => function ($row) use ($_rowMayModify, $live) {
+                return $_rowMayModify($row) && $live($row);
+            },
+        ],
+    ],
+];
+
+/* ── detail-drawer widgets: the upstream field elements ── */
+$field = function ($element, $row, array $config = []) {
+    return trim($this->element('genericElementsBS5/IndexTable/Fields/' . $element, [
+        'field' => $config + ['data_path' => ''],
+        'row' => $row,
+        'viewMode' => 'table',
+    ]));
+};
+$tagListField = [
+    'data_path' => 'AttributeTag',
+    'add_tag' => $_rowMayTag,
+    'add_tag_url' => $baseurl . '/attributes/editAttributeTags/%id%',
+    'add_relationship_url' => $baseurl . '/attributes/editAttributeTagRelationships/%id%',
+];
+$galaxyField = [
+    'data_path' => 'Galaxy',
+    'add_galaxy' => $_rowMayTag,
+    'add_galaxy_url' => $baseurl . '/attributes/editAttributeGalaxies/%id%',
+    'add_galaxy_relationship_url' => $baseurl . '/attributes/editAttributeGalaxyRelationships/%id%',
+];
+$analystField = [
+    'note_path' => 'Note',
+    'opinion_path' => 'Opinion',
+    'relationship_path' => 'Relationship',
+    'relationship_inbound_path' => 'RelationshipInbound',
+    'uuid_path' => 'uuid',
+    'object_type' => 'Attribute',
+];
+
+// Accept / discard buttons for a pending proposal (upstream attribute_value.ctp).
+$proposalActions = function ($pid) use ($_canModifyProposal, $baseurl) {
+    if (!$_canModifyProposal) {
+        return '';
+    }
+    $pid = (int)$pid;
+    return sprintf(
+        '<button type="button" class="fi-evw-prop-btn is-accept" title="%s" onclick="acceptProposal(%d)"><i class="fas fa-check"></i></button>'
+        . '<button type="button" class="fi-evw-prop-btn" title="%s" onclick="openModal(\'%s/shadow_attributes/discard/%d\', \'sm\')"><i class="fas fa-times"></i></button>',
+        h(__('Accept proposal')), $pid, h(__('Discard proposal')), h($baseurl), $pid
+    );
+};
+// What a proposed edit changes against the live attribute.
+$proposalDiffs = function ($p, $a) {
+    $diffs = [];
+    foreach (['category' => __('Category'), 'type' => __('Type'), 'value' => __('Value'), 'comment' => __('Comment')] as $key => $label) {
+        if ((string)($p[$key] ?? '') !== (string)($a[$key] ?? '')) {
+            $diffs[] = [$label, (string)($a[$key] ?? ''), (string)($p[$key] ?? '')];
+        }
+    }
+    if ((int)($p['to_ids'] ?? 0) !== (int)($a['to_ids'] ?? 0)) {
+        $diffs[] = [__('IDS'), !empty($a['to_ids']) ? __('yes') : __('no'), !empty($p['to_ids']) ? __('yes') : __('no')];
+    }
+    return $diffs;
+};
+
+/* ── "Filter" drawer: Overmind's event-view filter bar ── */
+$named = $this->request->params['named'] ?? [];
+$currentDeleted = (int)($named['deleted'] ?? 0);
+$currentProposal = (int)($named['proposal'] ?? 0);
+$filtersActive = 0;
+foreach (['searchFor', 'category', 'type', 'deleted', 'proposal', 'warninglist'] as $key) {
+    if (!empty($named[$key])) {
+        $filtersActive++;
+    }
+}
+// Fallback hrefs; the real toggles are wired by view_attributes.ctp.
+// deleted:2 is "only the soft-deleted ones".
+$attrBaseUrl = $baseurl . '/events/viewAttributes/' . $eventId . ($extensionSuffix ?? '');
+$deletedUrl = $attrBaseUrl
+    . ($currentDeleted ? '' : '/deleted:2')
+    . ($currentProposal ? '/proposal:' . $currentProposal : '');
+$proposalUrl = $attrBaseUrl
+    . ($currentDeleted ? '/deleted:' . $currentDeleted : '')
+    . ($currentProposal ? '' : '/proposal:1');
+$filterBar = [
+    'pull' => 'right',
+    'skip_pagination' => true,
+    'children' => [
+        [
+            // The tab filters on `searchFor:`; naming it lets the bar
+            // render the term back into the box.
+            'type' => 'search',
+            'button' => 'Search',
+            'placeholder' => __('Filter by attribute value'),
+            'mode' => 'legacy',
+            'name' => 'searchFor',
+        ],
+        [
+            // viewAttributes only supports category and type.
+            'type' => 'more_filters',
+            'label' => __('More filters'),
+            'children' => [
+                ['type' => 'dropdown', 'label' => __('Category'), 'name' => 'category', 'options' => ['' => ''] + ($categoryOptions ?? [])],
+                ['type' => 'dropdown', 'label' => __('Type'), 'name' => 'type', 'options' => ['' => ''] + ($typeOptions ?? [])],
+            ],
         ],
         [
             'type' => 'button',
-            'label' => __('Org attributes'),
-            'icon' => 'misp-icon misp-icon-organisation misp-simple',
-            'class' => 'btn btn-primary',
-            'url' => $baseurl . '/attributes/index?org=' . urlencode($myOrg)
-        ]
-    ]);
-}
-
-if (empty($show_event_id) && !empty($event['Event']['id'])) {
-    // Event view: only category and type are supported by viewAttributes
-    $children = array_merge($children, [
+            'url' => $proposalUrl,
+            'class' => 'btn attr-proposal-toggle ' . ($currentProposal ? 'btn-warning' : 'btn-outline-warning'),
+            'icon' => 'fas fa-comment-dots',
+            'label' => __('Proposals') . (!empty($proposalCount) ? ' (' . (int)$proposalCount . ')' : ''),
+        ],
         [
-            'type' => 'more_filters',
-            'label' => __('More filters'),
-            'children' => [
-                [
-                    'type' => 'dropdown',
-                    'label' => __('Category'),
-                    'name' => 'category',
-                    'options' => ['' => ''] + ($categoryOptions ?? [])
-                ],
-                [
-                    'type' => 'dropdown',
-                    'label' => __('Type'),
-                    'name' => 'type',
-                    'options' => ['' => ''] + ($typeOptions ?? [])
-                ],
-            ]
-        ]
-    ]);
-} else {
-    $children = array_merge($children, [
-        [
-            'type' => 'more_filters',
-            'label' => __('More filters'),
-            'children' => [
-                [
-                    'type' => 'dropdown',
-                    'label' => __('Category'),
-                    'name' => 'category',
-                    'options' => $categoryOptions ?? []
-                ],
-                [
-                    'type' => 'dropdown',
-                    'label' => __('Type'),
-                    'name' => 'type',
-                    'options' => $typeOptions ?? []
-                ],
-                [
-                    'type' => 'dropdown',
-                    'label' => __('Creator Org'),
-                    'name' => 'org',
-                    'options' => $orgOptions ?? []
-                ],
-                [
-                    'type' => 'dropdown',
-                    'label' => __('Tags'),
-                    'name' => 'tags',
-                    'options' => $tagOptions ?? []
-                ],
-                [
-                    'type' => 'dropdown',
-                    'label' => __('Galaxy'),
-                    'name' => 'galaxy',
-                    'options' => $galaxyOptions ?? []
-                ]
-            ]
-        ]
-    ]);
-}
-
-if (empty($show_event_id) && !empty($event['Event']['id'])) {
-    $attrEventId     = $event['Event']['id'];
-    $namedParams     = $this->request->params['named'] ?? [];
-    $currentDeleted  = (int)($namedParams['deleted'] ?? 0);
-    $currentProposal = (int)($namedParams['proposal'] ?? 0);
-    // deleted:2 is "only the soft-deleted ones"
-    $toggleDeleted   = $currentDeleted ? 0 : 2;
-    $toggleProposal  = $currentProposal ? 0 : 1;
-    $attrBaseUrl     = $baseurl . '/events/viewAttributes/' . $attrEventId
-        . ($extensionSuffix ?? '');
-
-    // Fallback hrefs (real toggles are handled by view_attributes.ctp)
-    $deletedUrl  = $attrBaseUrl
-        . ($toggleDeleted ? '/deleted:' . $toggleDeleted : '')
-        . ($currentProposal ? '/proposal:' . $currentProposal : '');
-    $proposalUrl = $attrBaseUrl
-        . ($currentDeleted ? '/deleted:' . $currentDeleted : '')
-        . ($toggleProposal ? '/proposal:' . $toggleProposal : '');
-
-    $children[] = [
-        'type'  => 'button',
-        'url'   => $proposalUrl,
-        'class' => 'btn attr-proposal-toggle ' . ($currentProposal ? 'btn-warning' : 'btn-outline-warning'),
-        'icon'  => 'fas fa-comment-dots',
-        'label' => __('Proposals') . (!empty($proposalCount) ? ' (' . (int)$proposalCount . ')' : ''),
-    ];
-
-    $children[] = [
-        'type'  => 'button',
-        'url'   => $deletedUrl,
-        'class' => 'btn attr-deleted-toggle ' . ($currentDeleted ? 'btn-danger' : 'btn-outline-danger'),
-        'icon'  => 'fas fa-trash',
-        'label' => __('Deleted') . (!empty($deletedCount) ? ' (' . (int)$deletedCount . ')' : ''),
-    ];
-}
-
-
-$filterBar = [
-    'pull' => 'right',
-    'children' => $children,
-    'soft_delete' => '/deleteSelection',
+            'type' => 'button',
+            'url' => $deletedUrl,
+            'class' => 'btn attr-deleted-toggle ' . ($currentDeleted ? 'btn-danger' : 'btn-outline-danger'),
+            'icon' => 'fas fa-trash',
+            'label' => __('Deleted') . (!empty($deletedCount) ? ' (' . (int)$deletedCount . ')' : ''),
+        ],
+    ],
 ];
 
-if (!$inEventView) {
-    $filterBar['transport'] = 'query';
-    $queryFilters = array_diff_key(
-        $this->request->query ?? [],
-        array_flip(['page', 'limit', 'sort', 'direction'])
-    );
-    $this->Paginator->options(['url' => ['?' => $queryFilters]]);
-}
-
-// IDS reads Yes/No in this table (event-view.css): the labels travel as CSS
-// strings so they stay translatable.
-printf(
-    '<div class="fi-evw-attrs" style="%s">',
-    h('--fi-yes:' . json_encode(__('Yes')) . ';--fi-no:' . json_encode(__('No')))
-);
-echo $this->element('genericElementsBS5/IndexTable/scaffold', [
-    'scaffold_data' => [
-        'data' => [
-            'data' => $attributes,
-            'cards_per_row' => ['' => 1, 'lg' => 2, 'xxxxl' => 3],
-            'primary_id_path' => $path('id'),
-            'row_class_callable' => function($row) use ($inExtensionView, $extensionEvents) {
-                $classes = [];
-                if (!empty($row['is_proposal'])) {
-                    $classes[] = 'attr-proposal-row';
-                } elseif (!empty($row['deleted'])) {
-                    $classes[] = 'attr-deleted';
-                }
-                if ($inExtensionView) {
-                    $origin = $extensionEvents[(int)($row['event_id'] ?? 0)] ?? null;
-                    if ($origin !== null && $origin['role'] !== 'self') {
-                        $classes[] = 'evt-extension-row';
-                    }
-                }
-                return implode(' ', $classes);
-            },
-            'row_style_callable' => function($row) use ($inExtensionView, $extensionEvents) {
-                if (!$inExtensionView) {
-                    return '';
-                }
-                $origin = $extensionEvents[(int)($row['event_id'] ?? 0)] ?? null;
-                if ($origin === null || $origin['role'] === 'self') {
-                    return '';
-                }
-                return sprintf(
-                    '--extension-tint:%s;--extension-accent:%s;',
-                    $origin['palette']['sectionBg'],
-                    $origin['palette']['badgeBorder']
-                );
-            },
-            'filter_bar' => $filterBar + [
-                // 'mass_edit' => 1,
-                // 'mass_tag' => 1,
-                // 'mass_local_tag' => 1,
-                // 'mass_cluster' => 1,
-                // 'mass_local_cluster' => 1,
-                // 'mass_object' => 1,
-                // 'mass_relationship' =>1,
-                // 'mass_sighting' =>1,
-            ],
-            'fields' => $fields,
-        ]
-    ],
-    'item_url' => '/attributes'
-]);
-
-echo '</div>';
+$sortHeader = function ($key, $label) {
+    return $this->Paginator->sort($key, h($label), ['escape' => false]);
+};
+$maxTags = 3;
+$colCount = 8;
 ?>
+<div class="fi-evw-attrs" style="<?= h('--fi-yes:' . json_encode(__('Yes')) . ';--fi-no:' . json_encode(__('No'))) ?>">
+
+    <?php /* "Filter" drawer: the upstream bar, unchanged, folded until asked for. */ ?>
+    <div class="fi-evw-filter<?= !empty($filtersActive) ? ' is-open' : '' ?>"
+         data-active-filters="<?= (int)($filtersActive ?? 0) ?>">
+        <?= $this->element('genericElementsBS5/IndexTable/filter_bar', [
+            'scaffold_data' => ['filter_bar' => $filterBar],
+            'item_url' => '/attributes',
+        ]) ?>
+    </div>
+
+    <div id="index-results" class="index-results">
+        <div class="fi-panel fi-evw-attr-panel">
+            <?= $this->element('genericElementsBS5/IndexTable/multi_select_toolbar', [
+                'filter_bar' => ['soft_delete' => '/deleteSelection'],
+                'item_url' => '/attributes',
+            ]) ?>
+
+            <?php if (empty($attributes)): ?>
+                <div class="fi-evw-attr-empty fi-faint">
+                    <i class="fas fa-inbox"></i><?= __('No attributes to display') ?>
+                </div>
+            <?php else: ?>
+            <table class="fi-evw-table">
+                <colgroup>
+                    <col class="fi-evw-c-sel"><col class="fi-evw-c-cat"><col class="fi-evw-c-type">
+                    <col><col class="fi-evw-c-tags"><col class="fi-evw-c-ids">
+                    <col class="fi-evw-c-corr"><col class="fi-evw-c-act">
+                </colgroup>
+                <thead class="checkbox-index">
+                    <tr>
+                        <th class="fi-evw-c-sel">
+                            <input id="select_all" class="select_all form-check-input" type="checkbox"
+                                   onclick="toggleAllAttributeCheckboxes(this);"
+                                   aria-label="<?= __('Select all') ?>">
+                        </th>
+                        <th class="fi-evw-c-cat"><?= $sortHeader('category', __('Category')) ?></th>
+                        <th class="fi-evw-c-type"><?= $sortHeader('type', __('Type')) ?></th>
+                        <th><?= $sortHeader('value', __('Value')) ?></th>
+                        <th class="fi-evw-c-tags"><?= __('Tags') ?></th>
+                        <th class="fi-evw-c-ids"><?= $sortHeader('to_ids', __('IDS')) ?></th>
+                        <th class="fi-evw-c-corr"><?= __('Corr.') ?></th>
+                        <th class="fi-evw-c-act"><span class="visually-hidden"><?= __('Actions') ?></span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                <?php foreach ($attributes as $k => $row):
+                    $id = (int)($row['id'] ?? 0);
+                    $isProposal = !empty($row['is_proposal']);
+                    $isDeleted = !empty($row['deleted']);
+                    $rowOrigin = $inExtensionView ? $origin($row) : null;
+
+                    $classes = ['fi-evw-row'];
+                    $style = '';
+                    if ($isProposal) {
+                        $classes[] = 'attr-proposal-row';
+                    } elseif ($isDeleted) {
+                        $classes[] = 'attr-deleted';
+                    }
+                    if ($rowOrigin !== null && $rowOrigin['role'] !== 'self') {
+                        $classes[] = 'evt-extension-row';
+                        $style = sprintf(
+                            '--extension-tint:%s;--extension-accent:%s;',
+                            $rowOrigin['palette']['sectionBg'],
+                            $rowOrigin['palette']['badgeBorder']
+                        );
+                    }
+
+                    // Correlated events, deduplicated as relatedEvents.ctp does.
+                    $relatedIds = [];
+                    foreach ($row['RelatedAttribute'] ?? [] as $ra) {
+                        $relatedIds[$ra['Event']['id'] ?? ($ra['id'] ?? '')] = true;
+                    }
+                    unset($relatedIds['']);
+                    $corrCount = count($relatedIds);
+
+                    $tags = [];
+                    foreach ($row['AttributeTag'] ?? [] as $at) {
+                        if (!empty($at['Tag']) && empty($at['Tag']['is_galaxy'])) {
+                            $tags[] = $at;
+                        }
+                    }
+                    $mayTag = $_rowMayTag($row) && !$isDeleted && !$isProposal && $id;
+                    $hoverId = ($_hoverEnrich && !$isProposal && $id) ? $id : null;
+                    $editable = $_rowMayModify($row) && !$isDeleted && !$isProposal && $id;
+                ?>
+                    <tr class="<?= h(implode(' ', $classes)) ?>" data-row-id="<?= h($k) ?>"
+                        data-primary-id="<?= $id ?>" tabindex="0" aria-expanded="false"
+                        <?= $editable ? 'data-edit-url="' . h($baseurl . '/attributes/edit/' . $id) . '"' : '' ?>
+                        <?= $style !== '' ? 'style="' . h($style) . '"' : '' ?>>
+                        <td class="fi-evw-c-sel">
+                            <?= $this->element('genericElementsBS5/IndexTable/Fields/checkbox', [
+                                'field' => $checkboxField,
+                                'row' => $row,
+                            ]) ?>
+                        </td>
+                        <td class="fi-evw-c-cat"><?= h($row['category'] ?? '') ?></td>
+                        <td class="fi-evw-c-type"><?= h($row['type'] ?? '') ?></td>
+                        <td class="fi-evw-c-value">
+                            <div class="fi-evw-val">
+                                <?php if ($isProposal): ?>
+                                    <span class="fi-evw-flag is-proposal"><?= __('Proposal') ?></span>
+                                <?php elseif ($isDeleted): ?>
+                                    <span class="fi-evw-flag is-deleted"><?= __('Deleted') ?></span>
+                                <?php endif; ?>
+                                <?php if ($hoverId && !$_hoverClickOnly): ?>
+                                    <span class="fi-evw-value om-hover-enrichment"
+                                          data-hover-enrichment-id="<?= $hoverId ?>"
+                                          data-hover-trigger="hover"><?= h($row['value'] ?? '') ?></span>
+                                <?php else: ?>
+                                    <span class="fi-evw-value" title="<?= h($row['value'] ?? '') ?>"><?= h($row['value'] ?? '') ?></span>
+                                    <?php if ($hoverId): ?>
+                                        <i class="fas fa-magnifying-glass-plus fi-evw-hover-btn om-hover-enrichment"
+                                           role="button" tabindex="0"
+                                           data-hover-enrichment-id="<?= $hoverId ?>"
+                                           data-hover-trigger="click"
+                                           title="<?= __('Look up enrichment') ?>"></i>
+                                    <?php endif; ?>
+                                <?php endif; ?>
+                                <?php if (!empty($row['warnings'])): ?>
+                                    <i class="fas fa-triangle-exclamation fi-evw-warn"
+                                       title="<?= h(__('Warninglist hit: %s', implode(', ', array_unique(array_column($row['warnings'], 'warninglist_name'))))) ?>"></i>
+                                <?php endif; ?>
+                                <?php if ($rowOrigin !== null && $rowOrigin['role'] !== 'self'): ?>
+                                    <?= $this->element('Events/View/extension_origin', [
+                                        'event_id' => (int)$row['event_id'],
+                                        'compact' => true,
+                                        'class' => 'fi-evw-origin',
+                                    ]) ?>
+                                <?php endif; ?>
+                            </div>
+                            <?php if (!empty($row['comment'])): ?>
+                                <div class="fi-evw-comment" title="<?= h($row['comment']) ?>"><?= h($row['comment']) ?></div>
+                            <?php endif; ?>
+                            <?php if ($isProposal): ?>
+                                <div class="fi-evw-prop">
+                                    <?php if (!empty($row['proposal_org_name'])): ?>
+                                        <span class="fi-faint"><?= h(__('by %s', $row['proposal_org_name'])) ?></span>
+                                    <?php endif; ?>
+                                    <?= $proposalActions($row['proposal_id'] ?? $id) ?>
+                                </div>
+                            <?php endif; ?>
+                            <?php foreach ($row['ShadowAttribute'] ?? [] as $p):
+                                $isDeleteProposal = !empty($p['proposal_to_delete']);
+                                $diffs = $isDeleteProposal ? [] : $proposalDiffs($p, $row); ?>
+                                <div class="fi-evw-prop">
+                                    <span class="fi-evw-flag is-proposal">
+                                        <?= $isDeleteProposal ? __('Deletion proposed') : __('Proposed change') ?>
+                                    </span>
+                                    <?php if ($isDeleteProposal): ?>
+                                        <span class="text-danger"><?= __('Remove this attribute') ?></span>
+                                    <?php elseif (empty($diffs)): ?>
+                                        <span class="fi-mono"><?= h($p['value'] ?? '') ?></span>
+                                    <?php else: foreach ($diffs as [$label, $old, $new]): ?>
+                                        <span>
+                                            <span class="fi-faint"><?= h($label) ?>:</span>
+                                            <?php if ($old !== ''): ?><del class="fi-faint"><?= h($old) ?></del> &rarr;<?php endif; ?>
+                                            <strong><?= h($new) ?></strong>
+                                        </span>
+                                    <?php endforeach; endif; ?>
+                                    <span class="fi-faint"><?= h(__('by %s', $p['org_name'] ?? ($p['org_id'] ?? ''))) ?></span>
+                                    <?= $proposalActions($p['id']) ?>
+                                </div>
+                            <?php endforeach; ?>
+                        </td>
+                        <td class="fi-evw-c-tags">
+                            <div class="tag-container fi-evw-tags">
+                                <?php foreach ($tags as $i => $at):
+                                    $tag = $at['Tag'];
+                                    $colour = !empty($tag['colour']) ? $tag['colour'] : '#0088cc'; ?>
+                                    <span class="fi-evw-tag<?= $i >= $maxTags ? ' d-none extra-tag' : '' ?>"
+                                          title="<?= h(trim(($at['relationship_type'] ?? '') . ' ' . $tag['name'])) ?>"
+                                          style="background-color:<?= h($colour) ?>;color:<?= h($this->TextColour->getTextColour($colour)) ?>;">
+                                        <?php if (!empty($at['local'])): ?><i class="fas fa-user"></i><?php endif; ?>
+                                        <?= h($tag['name']) ?>
+                                    </span>
+                                <?php endforeach; ?>
+                                <?php if (count($tags) > $maxTags): ?>
+                                    <span class="fi-evw-tag fi-evw-tag-more" role="button" tabindex="0"
+                                          onclick="toggleTags(this)">+<?= count($tags) - $maxTags ?></span>
+                                <?php endif; ?>
+                                <?php if ($mayTag): ?>
+                                    <button type="button" class="fi-evw-tag-add"
+                                            title="<?= __('Add a tag') ?>" aria-label="<?= __('Add a tag') ?>"
+                                            onclick="openModal('<?= h($baseurl . '/attributes/editAttributeTags/' . $id) ?>', 'xl');">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                <?php endif; ?>
+                            </div>
+                        </td>
+                        <td class="fi-evw-c-ids">
+                            <?php if (!$isProposal): ?>
+                                <?= $this->element('genericElementsBS5/IndexTable/Fields/ids', [
+                                    'field' => ['data_path' => 'to_ids'],
+                                    'row' => $row,
+                                    'viewMode' => 'table',
+                                ]) ?>
+                            <?php endif; ?>
+                        </td>
+                        <td class="fi-evw-c-corr">
+                            <button type="button" class="fi-evw-corr fi-num<?= $corrCount ? '' : ' is-zero' ?>"
+                                    data-fi-evw-expand
+                                    title="<?= h(__n('%s correlated event', '%s correlated events', $corrCount, $corrCount)) ?>"><?= $corrCount ?></button>
+                        </td>
+                        <td class="fi-evw-c-act">
+                            <?php if (!$isProposal): ?>
+                                <?= $this->element('genericElementsBS5/IndexTable/Fields/row_actions', [
+                                    'field' => $actionsField,
+                                    'row' => $row,
+                                ]) ?>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                    <tr class="fi-evw-detail" hidden>
+                        <td colspan="<?= $colCount ?>">
+                            <?php
+                            $items = [];
+                            $dist = (int)($row['distribution'] ?? 0);
+                            $items[__('Distribution')] = $field('distribution', $row, ['data_path' => 'distribution'])
+                                . ($dist === 4 && !empty($row['SharingGroup']['name'])
+                                    ? ' <span class="fi-dim">' . h($row['SharingGroup']['name']) . '</span>' : '');
+                            if (!empty($row['timestamp'])) {
+                                $items[__('Last modified')] = '<span class="fi-mono">'
+                                    . h(date('Y-m-d H:i:s', (int)$row['timestamp'])) . '</span>';
+                            }
+                            if (!empty($row['first_seen']) || !empty($row['last_seen'])) {
+                                $items[__('First / last seen')] = '<span class="fi-mono">'
+                                    . h(($row['first_seen'] ?: '–') . ' → ' . ($row['last_seen'] ?: '–')) . '</span>';
+                            }
+                            if (!empty($row['uuid'])) {
+                                $items[__('UUID')] = '<span class="fi-mono">' . h($row['uuid']) . '</span>'
+                                    . ' <button type="button" class="fi-evw-copy" title="' . h(__('Copy UUID')) . '"'
+                                    . ' onclick="copyValueToClipboard(\'' . h($row['uuid']) . '\', \'' . h(__('UUID copied to clipboard')) . '\')">'
+                                    . '<i class="fas fa-copy"></i></button>';
+                            }
+                            if ($inExtensionView) {
+                                $items[__('Event')] = $this->element('Events/View/extension_origin', [
+                                    'event_id' => (int)($row['event_id'] ?? 0),
+                                ]);
+                            }
+                            if (!$isProposal) {
+                                $items[__('Correlation')] = $field('correlate', $row, ['data_path' => 'disable_correlation']);
+                                $items[__('Correlated events')] = $field('relatedEvents', $row);
+                                $items[__('Feed hits')] = $field('feedHits', ['Attribute' => $row]);
+                                $items[__('Sightings')] = $field('sightings', $row, ['sightings' => ['data' => [], 'csv' => []]]);
+                                $items[__('Analyst data')] = $field('analyst_data_badges', $row, $analystField);
+                                $items[__('Tags')] = $field('tag_list', $row, $tagListField);
+                                $items[__('Galaxies')] = $field('galaxy', $row, $galaxyField);
+                            }
+                            if (!empty($row['warnings'])) {
+                                $links = [];
+                                foreach ($row['warnings'] as $w) {
+                                    $links[(int)$w['warninglist_id']] = sprintf(
+                                        '<a href="%s/warninglists/view/%d">%s</a>',
+                                        h($baseurl), (int)$w['warninglist_id'], h($w['warninglist_name'])
+                                    );
+                                }
+                                $items[__('Warninglists')] = implode(', ', $links);
+                            }
+                            ?>
+                            <dl class="fi-evw-dgrid">
+                                <?php foreach ($items as $label => $html): if (trim(strip_tags($html, '<i><button><img><input><canvas>')) === '') continue; ?>
+                                    <div class="<?= in_array($label, [__('Tags'), __('Galaxies'), __('Correlated events'), __('Feed hits')], true) ? 'is-wide' : '' ?>">
+                                        <dt><?= h($label) ?></dt>
+                                        <dd><?= $html ?></dd>
+                                    </div>
+                                <?php endforeach; ?>
+                            </dl>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+            <?php endif; ?>
+        </div>
+
+        <div class="fi-evw-pagination">
+            <?= $this->element('genericElementsBS5/IndexTable/pagination') ?>
+        </div>
+    </div>
+</div>

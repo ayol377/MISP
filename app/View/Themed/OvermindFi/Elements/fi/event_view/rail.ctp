@@ -8,6 +8,7 @@
  *   correlations  events/viewRelatedEvents/<id>.json
  * Geography comes from the galaxy clusters already on $event (view2 fetched
  * them through the ACL-aware GalaxyCluster::getClustersByTags()).
+ * No sightings delta badge: no endpoint reports one.
  */
 $eventId = (int)$event['Event']['id'];
 $suffix = $extensionSuffix ?? '';
@@ -37,9 +38,7 @@ foreach ($event['Galaxy'] ?? [] as $galaxy) {
             <div class="fi-evw-stat-label"><?= __('Attributes') ?></div>
             <div class="fi-evw-stat-value">
                 <span class="fi-num"><?= number_format((int)($attribute_count ?? 0)) ?></span>
-                <span class="fi-evw-stat-max fi-mono" id="fi-evw-ids" hidden>
-                    <?= __('IDS') ?> <span></span>
-                </span>
+                <span class="fi-evw-stat-max fi-mono" id="fi-evw-ids" hidden>/<?= __('IDS') ?> <span></span></span>
             </div>
         </div>
         <div>
@@ -47,9 +46,7 @@ foreach ($event['Galaxy'] ?? [] as $galaxy) {
             <div class="fi-evw-stat-value">
                 <span class="fi-num" id="fi-evw-sightings">&ndash;</span>
                 <span class="fi-evw-stat-max fi-mono" id="fi-evw-fp" hidden
-                      title="<?= h(__('False positives')) ?>">
-                    <?= __('FP') ?> <span></span>
-                </span>
+                      title="<?= h(__('False positives')) ?>">/<?= __('FP') ?> <span></span></span>
             </div>
         </div>
     </div>
@@ -59,10 +56,20 @@ foreach ($event['Galaxy'] ?? [] as $galaxy) {
             <?= __('Correlated events') ?>
             <span class="fi-panel-note"><?= __('shared values') ?></span>
         </div>
-        <ol class="fi-evw-rank" id="fi-evw-related">
-            <li class="fi-faint"><?= __('Loading…') ?></li>
-        </ol>
-        <button type="button" class="btn fi-btn-text w-100" id="fi-evw-related-more" hidden></button>
+        <table class="fi-evw-rank">
+            <thead>
+                <tr>
+                    <th><?= __('Rank') ?></th>
+                    <th><?= __('Event') ?></th>
+                    <th class="text-end"><?= __('Shared') ?></th>
+                </tr>
+            </thead>
+            <tbody id="fi-evw-related">
+                <tr><td colspan="3" class="fi-faint"><?= __('Loading…') ?></td></tr>
+            </tbody>
+        </table>
+        <button type="button" class="fi-evw-btn fi-evw-btn-text fi-evw-rank-more"
+                id="fi-evw-related-more" hidden></button>
     </div>
 
     <div class="fi-panel">
@@ -102,6 +109,9 @@ document.addEventListener('DOMContentLoaded', function () {
         el.querySelector('span').textContent = fmt(value);
         el.hidden = false;
     }
+    function note(text) {
+        list.innerHTML = '<tr><td colspan="3" class="fi-faint">' + escapeHtml(text) + '</td></tr>';
+    }
 
     json(base + 'viewAttributes/' + id + suffix + '/toIDS:1/limit:1.json')
         .then(function (d) { reveal('fi-evw-ids', d.total); })
@@ -120,21 +130,20 @@ document.addEventListener('DOMContentLoaded', function () {
         .then(function (d) {
             var rows = (d.RelatedEvent || []).map(function (r) { return r.Event; });
             rows.sort(function (a, b) { return b.correlation_count - a.correlation_count; });
-            list.textContent = '';
             if (!rows.length) {
-                list.innerHTML = '<li class="fi-faint">' + escapeHtml(msg.none) + '</li>';
+                note(msg.none);
                 return;
             }
+            list.textContent = '';
             rows.forEach(function (e, i) {
-                var li = document.createElement('li');
-                if (i >= limit) li.hidden = true;
-                li.innerHTML = '<span class="fi-mono fi-faint">' + (i + 1) + '</span>'
-                    + '<a href="' + baseurl + '/events/view2/' + encodeURIComponent(e.id) + '"'
+                var tr = document.createElement('tr');
+                if (i >= limit) tr.hidden = true;
+                tr.innerHTML = '<td class="fi-mono fi-evw-rank-n">' + String(i + 1).padStart(2, '0') + '</td>'
+                    + '<td><a href="' + baseurl + '/events/view2/' + encodeURIComponent(e.id) + '"'
                     + ' title="' + escapeHtml(e.info) + '">'
-                    + '<span class="fi-mono fi-faint">#' + escapeHtml(String(e.id)) + '</span> '
-                    + escapeHtml(e.info) + '</a>'
-                    + '<span class="fi-num">' + fmt(e.correlation_count) + '</span>';
-                list.appendChild(li);
+                    + '#' + escapeHtml(String(e.id)) + ' ' + escapeHtml(e.info) + '</a></td>'
+                    + '<td class="text-end">' + fmt(e.correlation_count) + '</td>';
+                list.appendChild(tr);
             });
             if (rows.length > limit) {
                 var open = false;
@@ -142,15 +151,13 @@ document.addEventListener('DOMContentLoaded', function () {
                 more.hidden = false;
                 more.addEventListener('click', function () {
                     open = !open;
-                    list.querySelectorAll('li').forEach(function (li, i) {
-                        li.hidden = !open && i >= limit;
+                    list.querySelectorAll('tr').forEach(function (tr, i) {
+                        tr.hidden = !open && i >= limit;
                     });
                     more.textContent = open ? msg.less : msg.all.replace('%s', rows.length);
                 });
             }
         })
-        .catch(function () {
-            list.innerHTML = '<li class="fi-faint">' + escapeHtml(msg.fail) + '</li>';
-        });
+        .catch(function () { note(msg.fail); });
 });
 </script>

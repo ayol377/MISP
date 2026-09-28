@@ -1,11 +1,13 @@
 <?php
 /*
- * OvermindFi event view (mockup 1e). Started from
- * Themed/Overmind/Events/view2.ctp: same lazy sections, same tab ids
- * (#tab-attributes, #tab-correlation, ... are targeted by other scripts),
- * laid out as header + metadata strip + tabs + context rail.
+ * OvermindFi event view (mockup 1e). Own markup, same data as
+ * Themed/Overmind/Events/view2.ctp: the same lazy sections under the same
+ * tab ids (#tab-attributes, #tab-correlation, ... are targeted by other
+ * scripts), laid out as header + metadata strip + pill tabs + context rail.
+ * Behaviour lives in js/fi/event-view.js.
  */
 $this->set('hideHeaderSection', true);
+$this->set('additionalJs', ['fi/event-view']);
 
 $ev = $event['Event'];
 $eventId = (int)$ev['id'];
@@ -27,22 +29,14 @@ $modal = function ($url, $size = null) {
     );
 };
 $base = $baseurl . '/events';
+$editUrl = "$base/edit/$eventId";
 
-$threatId = (int)($ev['threat_level_id'] ?? 4);
-$threatTone = [1 => 'high', 2 => 'medium', 3 => 'low'][$threatId] ?? 'undef';
 $threatName = $event['ThreatLevel']['name'] ?? __('Undefined');
 $analysis = (int)($ev['analysis'] ?? 0);
 $distribution = (int)($ev['distribution'] ?? 0);
-if ($distribution === 4 && !empty($event['SharingGroup']['name'])) {
-    $distributionHtml = sprintf(
-        '<a href="%s/sharing_groups/view/%s">%s</a>',
-        h($baseurl),
-        h($event['SharingGroup']['id']),
-        h($event['SharingGroup']['name'])
-    );
-} else {
-    $distributionHtml = h($distributionLevels[$distribution] ?? $distribution);
-}
+$distributionLabel = ($distribution === 4 && !empty($event['SharingGroup']['name']))
+    ? $event['SharingGroup']['name']
+    : ($distributionLevels[$distribution] ?? $distribution);
 
 $orgLogo = $this->OrgImg->getOrgLogoV2($orgc, 32);
 $orgInitials = strtoupper(substr(
@@ -50,6 +44,19 @@ $orgInitials = strtoupper(substr(
     0,
     2
 ));
+
+/*
+ * Metadata strip: label + pill. A pill opens the event edit form when the
+ * user may edit, and is plain text otherwise; the creator pill always goes
+ * to the organisation.
+ */
+$metaPills = [
+    [__('Creator'), $orgc['name'] ?? '', $baseurl . '/organisations/view/' . ($orgc['id'] ?? '')],
+    [__('Date'), $ev['date'] ?? '', null],
+    [__('Threat'), ucfirst(strtolower($threatName)), null],
+    [__('Analysis'), $analysisLevels[$analysis] ?? $analysis, null],
+    [__('Distribution'), $distributionLabel, null],
+];
 
 echo $this->element('genericElements/assetLoader', [
     'js'  => ['markdown-it', 'font-awesome-helper', 'misp-report-markdown', 'Chart.min']
@@ -60,9 +67,10 @@ echo $this->element('genericElements/assetLoader', [
 echo $this->element('Events/View/extension_banner');
 
 /*
- * Tabs. The first seven follow the mockup, the rest (sections Overmind
+ * Tabs. The first seven follow the mockup, the rest (the sections Overmind
  * shows on its General tab) sit under "More". Content entries are an
- * element name or ['ajax' => url] like view_layout.ctp.
+ * element name or ['ajax' => url] like view_layout.ctp. The counts ride
+ * the tab's title: the mockup shows bare labels.
  */
 $ajax = function ($action) use ($base, $eventId, $extensionSuffix) {
     return ['ajax' => sprintf('%s/%s/%d%s', $base, $action, $eventId, $extensionSuffix)];
@@ -77,6 +85,7 @@ $tabs = [
     'history' => [__('History'), null, 'Events/View/event_history'],
 ];
 $moreTabs = [
+    'details' => [__('Event details'), null, 'Events/View/event_general'],
     'tags' => [__('Tags'), null, 'Events/View/event_tags'],
     'attachments' => [__('Attachments'), null, 'Events/View/event_attachments'],
     'warninglists' => [__('Warninglist hits'), null, 'Events/View/event_warninglists'],
@@ -100,7 +109,7 @@ if ($canEdit) {
 
     <header class="fi-evw-head">
         <div class="fi-evw-titleblock" data-tour="page-title">
-            <nav class="fi-evw-crumb">
+            <nav class="fi-evw-crumb" aria-label="<?= __('Breadcrumb') ?>">
                 <a href="<?= h($base . '/index') ?>"><?= __('Events') ?></a>
                 <span>/</span>
                 <span class="fi-mono">#<?= $eventId ?></span>
@@ -115,126 +124,98 @@ if ($canEdit) {
 
         <div class="fi-evw-actions" data-tour="page-actions">
             <?php if ($canEdit && Configure::read('Plugin.Enrichment_services_enable')): ?>
-                <a class="btn fi-btn-text"
+                <a class="fi-evw-btn fi-evw-btn-text"
                    href="<?= h("$base/enrichEvent/$eventId") ?>"
                    onclick="<?= $modal("$base/enrichEvent/$eventId") ?>">
-                    <i class="fas fa-wand-magic-sparkles"></i> <?= __('Enrich') ?>
+                    <i class="fas fa-wand-magic-sparkles"></i><?= __('Enrich') ?>
                 </a>
             <?php endif; ?>
-            <a class="btn btn-outline-secondary"
+            <a class="fi-evw-btn fi-evw-btn-ghost"
                href="<?= h("$base/exportChoice/$eventId") ?>"
                onclick="<?= $modal("$base/exportChoice/$eventId", 'md') ?>">
                 <?= __('Export') ?>
             </a>
             <?php if ($canPropose): ?>
-                <a class="btn btn-outline-secondary"
+                <a class="fi-evw-btn fi-evw-btn-ghost"
                    href="<?= h("$baseurl/shadow_attributes/add/$eventId") ?>"
                    title="<?= h(__('Propose a new attribute to the event creator')) ?>">
                     <?= __('Propose change') ?>
                 </a>
             <?php endif; ?>
-            <?= $this->element('Events/View/event_actions', ['data' => $event]) ?>
             <?php if ($mayPublish && !$isPublished): ?>
-                <a class="btn btn-primary" href="#" data-tour="action-publish"
+                <a class="fi-evw-btn fi-evw-btn-primary" href="#" data-tour="action-publish"
                    onclick="<?= $modal("$base/publish/$eventId", 'md') ?>">
                     <?= __('Publish') ?>
                 </a>
             <?php elseif ($mayPublish): ?>
-                <a class="btn btn-outline-secondary" href="#"
+                <a class="fi-evw-btn fi-evw-btn-ghost" href="#"
                    data-tour="action-unpublish"
                    onclick="<?= $modal("$base/unpublish/$eventId", 'md') ?>">
                     <?= __('Unpublish') ?>
                 </a>
             <?php endif; ?>
+            <?= $this->element('Events/View/event_actions', ['data' => $event]) ?>
         </div>
     </header>
 
     <dl class="fi-evw-meta">
-        <div>
-            <dt><?= __('Creator') ?></dt>
-            <dd>
-                <a href="<?= h($baseurl . '/organisations/view/' . ($orgc['id'] ?? '')) ?>">
-                    <?= h($orgc['name'] ?? '') ?>
-                </a>
-            </dd>
-        </div>
-        <div>
-            <dt><?= __('Date') ?></dt>
-            <dd class="fi-mono"><?= h($ev['date'] ?? '') ?></dd>
-        </div>
-        <div>
-            <dt><?= __('Threat') ?></dt>
-            <dd class="fi-evw-threat fi-evw-threat-<?= $threatTone ?>"><?= h($threatName) ?></dd>
-        </div>
-        <div>
-            <dt><?= __('Analysis') ?></dt>
-            <dd><?= h($analysisLevels[$analysis] ?? $analysis) ?></dd>
-        </div>
-        <div>
-            <dt><?= __('Distribution') ?></dt>
-            <dd><?= $distributionHtml ?></dd>
-        </div>
-        <div>
-            <dt><?= __('State') ?></dt>
-            <dd><?= $isPublished ? __('Published') : __('Unpublished') ?></dd>
-        </div>
-        <button type="button" class="btn fi-btn-text fi-evw-details-toggle collapsed"
-                data-bs-toggle="collapse" data-bs-target="#fi-evw-details"
-                aria-expanded="false" aria-controls="fi-evw-details">
-            <?= __('Details') ?> <i class="fas fa-chevron-down"></i>
-        </button>
+        <?php foreach ($metaPills as [$label, $value, $link]): ?>
+            <div>
+                <dt><?= h($label) ?></dt>
+                <dd>
+                    <?php if ($link !== null): ?>
+                        <a class="fi-evw-pill" href="<?= h($link) ?>"><?= h($value) ?></a>
+                    <?php elseif ($canEdit): ?>
+                        <a class="fi-evw-pill" href="<?= h($editUrl) ?>"
+                           title="<?= h(__('Edit event')) ?>"
+                           onclick="<?= $modal($editUrl) ?>"><?= h($value) ?></a>
+                    <?php else: ?>
+                        <span class="fi-evw-pill is-static"><?= h($value) ?></span>
+                    <?php endif; ?>
+                </dd>
+            </div>
+        <?php endforeach; ?>
     </dl>
-
-    <div class="collapse fi-evw-details" id="fi-evw-details">
-        <?= $this->element('Events/View/event_general', ['data' => $event]) ?>
-    </div>
 
     <div class="fi-evw-body">
         <section class="fi-evw-main">
             <div class="fi-evw-tabbar">
-                <ul class="nav nav-tabs fi-evw-tabs" role="tablist" data-tour="view-tabs">
+                <ul class="nav fi-evw-tabs" role="tablist" data-tour="view-tabs">
                     <?php $first = true; foreach ($tabs as $id => [$title, $count]): ?>
                         <li class="nav-item" role="presentation">
                             <a class="nav-link nav-view<?= $first ? ' active' : '' ?>"
                                data-bs-toggle="tab" role="tab"
                                data-tour="view-tab-<?= h($id) ?>"
                                href="#tab-<?= h($id) ?>"
-                               aria-selected="<?= $first ? 'true' : 'false' ?>">
-                                <?= h($title) ?>
-                                <?php if (!empty($count)): ?>
-                                    <span class="fi-evw-tabcount fi-mono"><?= h($count) ?></span>
-                                <?php endif; ?>
-                            </a>
+                               <?= empty($count) ? '' : 'title="' . h(number_format((int)$count)) . '"' ?>
+                               aria-selected="<?= $first ? 'true' : 'false' ?>"><?= h($title) ?></a>
                         </li>
                     <?php $first = false; endforeach; ?>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown"
-                           href="#" role="button" aria-expanded="false">
-                            <?= __('More') ?>
-                        </a>
+                           href="#" role="button" aria-expanded="false"><?= __('More') ?></a>
                         <ul class="dropdown-menu">
                             <?php foreach ($moreTabs as $id => [$title]): ?>
                                 <li>
                                     <a class="dropdown-item nav-view" data-bs-toggle="tab"
                                        role="tab" href="#tab-<?= h($id) ?>"
-                                       data-tour="view-tab-<?= h($id) ?>">
-                                        <?= h($title) ?>
-                                    </a>
+                                       data-tour="view-tab-<?= h($id) ?>"><?= h($title) ?></a>
                                 </li>
                             <?php endforeach; ?>
                         </ul>
                     </li>
                 </ul>
                 <div class="fi-evw-tabtools">
-                    <button type="button" class="btn fi-btn-text" id="fi-evw-filter">
-                        <i class="fas fa-sliders"></i> <?= __('Filter') ?>
+                    <button type="button" class="fi-evw-btn fi-evw-btn-text" id="fi-evw-filter"
+                            data-header-tab="attributes" aria-expanded="false">
+                        <i class="fas fa-sliders"></i><?= __('Filter') ?>
                     </button>
                     <?php foreach ($tabAdds as $id => [$label, $url, $tour]): ?>
-                        <a class="btn fi-btn-text<?= $id === 'attributes' ? '' : ' d-none' ?>"
+                        <a class="fi-evw-btn fi-evw-btn-text<?= $id === 'attributes' ? '' : ' d-none' ?>"
                            data-header-tab="<?= h($id) ?>"
                            <?= $tour ? 'data-tour="' . h($tour) . '"' : '' ?>
                            href="<?= h($url) ?>" onclick="<?= $modal($url) ?>">
-                            <i class="fas fa-plus"></i> <?= h($label) ?>
+                            <i class="far fa-square-plus"></i><?= h($label) ?>
                         </a>
                     <?php endforeach; ?>
                 </div>
@@ -259,56 +240,3 @@ if ($canEdit) {
         <?= $this->element('fi/event_view/rail', ['event' => $event]) ?>
     </div>
 </div>
-
-<script>
-(function () {
-    // Tab <-> URL hash, and the per-tab "add" button (view_layout.ctp's
-    // script, extended to tabs that live in the "More" dropdown).
-    function tabLink(hash) {
-        return document.querySelector('.fi-evw-tabs [data-bs-toggle="tab"][href="' + hash + '"]');
-    }
-    function activateFromHash() {
-        var link = window.location.hash ? tabLink(window.location.hash) : null;
-        if (link) bootstrap.Tab.getOrCreateInstance(link).show();
-    }
-    function currentTabId() {
-        var a = document.querySelector('.fi-evw-tabs .nav-view.active[href^="#tab-"]');
-        return a ? a.getAttribute('href').replace('#tab-', '') : null;
-    }
-    function syncTabActions(id) {
-        document.querySelectorAll('.fi-evw-tabtools [data-header-tab]').forEach(function (el) {
-            el.classList.toggle('d-none', el.getAttribute('data-header-tab') !== id);
-        });
-    }
-    document.addEventListener('DOMContentLoaded', function () {
-        activateFromHash();
-        syncTabActions(currentTabId());
-        document.querySelectorAll('.fi-evw-tabs [data-bs-toggle="tab"]').forEach(function (t) {
-            t.addEventListener('shown.bs.tab', function (e) {
-                var href = e.target.getAttribute('href');
-                history.replaceState(null, '', href);
-                syncTabActions(href.replace('#tab-', ''));
-            });
-        });
-        // "Filter": focus the active tab's filter box, falling back to the
-        // attributes tab when the active one has none.
-        document.getElementById('fi-evw-filter').addEventListener('click', function () {
-            var pane = document.querySelector('.fi-evw .tab-pane.active');
-            var field = pane && pane.querySelector('#filterField, input[type="search"]');
-            if (!field) {
-                var link = tabLink('#tab-attributes');
-                bootstrap.Tab.getOrCreateInstance(link).show();
-                field = document.querySelector('#tab-attributes #filterField');
-            }
-            if (field) {
-                field.scrollIntoView({ block: 'center', behavior: 'smooth' });
-                field.focus();
-            }
-        });
-    });
-    window.addEventListener('hashchange', function () {
-        activateFromHash();
-        syncTabActions(currentTabId());
-    });
-}());
-</script>

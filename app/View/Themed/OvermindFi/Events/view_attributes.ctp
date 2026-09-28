@@ -52,8 +52,7 @@ $this->Paginator->options(['url' => $paginatorUrl]);
 
 <?php
 echo $this->element('fi/event_view/attributes_index', [
-    'attributes'    => $attributes,
-    'show_event_id' => false,
+    'attributes' => $attributes,
 ]);
 ?>
 
@@ -135,6 +134,9 @@ echo $this->element('fi/event_view/attributes_index', [
                 // value poked in afterwards leaves the summary saying there is
                 // no filter over a box that holds one.
                 registerFilterOverride(container);
+                if (typeof initTopbarFilterSelects === 'function') {
+                    initTopbarFilterSelects(container);
+                }
             })
             .catch(function () { showMessage('fail', _msgFail); });
     }
@@ -203,5 +205,20 @@ echo $this->element('fi/event_view/attributes_index', [
     }
 
     registerFilterOverride(container);
+
+    // A reload renders every checkbox unticked: drop the old selection.
+    if (window.selectedItems) { window.selectedItems.clear(); }
+    if (typeof updateMultiSelectToolbar === 'function') { updateMultiSelectToolbar(); }
+
+    // The tab bar's "Filter" button (Events/view2.ctp) says whether a
+    // filter is on and whether its drawer is open.
+    var filterBtn = document.getElementById('fi-evw-filter');
+    var drawer = container ? container.querySelector('.fi-evw-filter') : null;
+    if (filterBtn && drawer) {
+        // Opened by hand (js/fi/event-view.js): stays open across reloads.
+        if (container.__fiFilterOpen) { drawer.classList.add('is-open'); }
+        filterBtn.classList.toggle('is-active', drawer.dataset.activeFilters !== '0');
+        filterBtn.setAttribute('aria-expanded', drawer.classList.contains('is-open') ? 'true' : 'false');
+    }
 }());
 </script>
