@@ -294,6 +294,31 @@ $roleName = $me['Role']['name'] ?? '';
                         <a class="mfi-link" href="<?= h($a['url']) ?>"><?= $icon($a) ?><span><?= h($a['label']) ?></span></a>
                     <?php endif; ?>
                 <?php endforeach; ?>
+                <?php
+                    // What Overmind's page footer carried (fi has none):
+                    // server key downloads and the MISP version.
+                    $gpgPath = ROOT . DS . APP_DIR . DS . WEBROOT_DIR . DS . 'gpg.asc';
+                    $smimePath = ROOT . DS . APP_DIR . DS . WEBROOT_DIR . DS . 'public_certificate.pem';
+                    $gpgUrl = null;
+                    if (Configure::read('MISP.download_gpg_from_homedir')) {
+                        $gpgUrl = $this->Html->url(['controller' => 'users', 'action' => 'getGpgPublicKey']);
+                    } elseif (is_file($gpgPath)) {
+                        $gpgUrl = $this->webroot . 'gpg.asc';
+                    }
+                    $smimeUrl = (Configure::read('SMIME.enabled') && is_file($smimePath)) ? $this->webroot . 'public_certificate.pem' : null;
+                ?>
+                <?php if ($gpgUrl || $smimeUrl || !empty($mispVersionFull)): ?>
+                    <hr class="mfi-divider">
+                    <?php if ($gpgUrl): ?>
+                        <a class="mfi-link" href="<?= h($gpgUrl) ?>"><i class="fas fa-key fa-fw" aria-hidden="true"></i><span><?= __('Server PGP public key') ?></span></a>
+                    <?php endif; ?>
+                    <?php if ($smimeUrl): ?>
+                        <a class="mfi-link" href="<?= h($smimeUrl) ?>"><i class="fas fa-certificate fa-fw" aria-hidden="true"></i><span><?= __('Server S/MIME certificate') ?></span></a>
+                    <?php endif; ?>
+                    <?php if (!empty($mispVersionFull)): ?>
+                        <div class="mfi-note mfi-version">MISP <?= h($mispVersionFull) ?></div>
+                    <?php endif; ?>
+                <?php endif; ?>
             </div>
         </details>
     <?php endif; ?>

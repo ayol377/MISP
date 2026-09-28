@@ -71,6 +71,7 @@ summary.mfi-section-label:hover { color: #a8a8a8; }
 .mfi-count { flex: 0 0 auto !important; font-family: 'Spline Sans Mono', ui-monospace, monospace; font-size: 10px; color: #7a7a7a; }
 .mfi-theme-switch.on .mfi-count { color: #5bb75b; }
 .mfi-note { padding: 4px 12px; font-size: 11px; color: #f89406; }
+.mfi-note.mfi-version { color: #7a7a7a; font-family: 'Spline Sans Mono', ui-monospace, monospace; font-size: 10px; }
 
 .mfi-chevron { margin-left: auto; font-size: 9px; opacity: 0.7; transition: transform .15s ease; }
 details:not([open]) > summary .mfi-chevron { transform: rotate(-90deg); }
