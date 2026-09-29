@@ -366,13 +366,13 @@ class SocWallTool
         return $out;
     }
 
-    /** Distinct new events (24h) per TLP level; untagged ones are left out. */
+    /** Distinct new events (7d) per TLP level; untagged ones are left out. */
     private static function panelTlp(array $user)
     {
         return self::cached($user, 'tlp', function () use ($user) {
             $levels = ['red' => 'red', 'amber' => 'amber', 'amber+strict' => 'amber', 'green' => 'green', 'clear' => 'clear', 'white' => 'clear'];
             $events = [];
-            $rows = OverviewWidgetTool::eventTagRows($user, 'tlp:', time() - self::DAY, OverviewWidgetTool::dumpEventExclusion());
+            $rows = OverviewWidgetTool::eventTagRows($user, 'tlp:', time() - 7 * self::DAY, OverviewWidgetTool::dumpEventExclusion());
             foreach ($rows as $row) {
                 $level = $levels[strtolower(substr($row[1], 4))] ?? null;
                 if ($level !== null) {
