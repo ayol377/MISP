@@ -15,7 +15,7 @@ App::uses('WidgetCache', 'Lib/Dashboard/Tools');
  * ACL-scoped queries cached per org for TTL.
  *
  * Event-centric panels leave out daily IOC-dump events
- * (OverviewWidgetTool::DUMP_EVENT_TAGS); indicator panels keep them.
+ * (OverviewWidgetTool::DUMP_EVENT_TAGS); attribute panels keep them.
  */
 class SocWallTool
 {
@@ -191,33 +191,44 @@ class SocWallTool
     }
 
     /**
-     * Distinct events per tactic: last 28 days vs the 28 before, from
-     * AttackTacticsWidget over 56 days (2-day buckets, 28 columns).
+     * Attributes per tactic: last 28 days vs the 28 before. An attribute
+     * counts via its own or its event's Enterprise ATT&CK galaxy tags
+     * (mitre-attack-pattern, and the legacy mitre-enterprise-attack-*
+     * galaxies), dump events included.
      */
     private static function panelTactics(array $user)
     {
-        $data = self::widget($user, 'AttackTacticsWidget', ['time_window' => '56d', 'exclude_dump_events' => 1]);
-        $split = (int)floor((time() - 28 * self::DAY - (int)($data['start'] ?? 0)) / max(1, (int)($data['bucket'] ?? 1)));
-        $current = $previous = array_fill_keys(array_keys(self::TACTIC_AXES), 0);
-        foreach ((array)($data['rows'] ?? []) as $row) {
-            $tactic = strtolower(str_replace(' ', '-', (string)($row['label'] ?? '')));
-            $tactic = self::TACTIC_ALIASES[$tactic] ?? $tactic;
-            if (!isset($current[$tactic])) {
-                continue;
-            }
-            foreach (array_values((array)($row['cells'] ?? [])) as $col => $n) {
-                if ($col >= $split) {
-                    $current[$tactic] += (int)$n;
-                } else {
-                    $previous[$tactic] += (int)$n;
+        return self::cached($user, 'tactics', function () use ($user) {
+            $prefix = 'misp-galaxy:mitre-';
+            $tagNames = ClassRegistry::init('Tag')->find('column', [
+                'conditions' => ['Tag.name LIKE' => $prefix . '%'],
+                'fields' => ['Tag.name'],
+            ]);
+            $tactics = [];
+            foreach (OverviewWidgetTool::clusterElements($user, $tagNames, 'kill_chain') as $tagName => $chains) {
+                foreach ($chains as $chain) {
+                    if (preg_match('/^(attack-|mitre-attack:enterprise-attack:)/', $chain) && ($pos = strrpos($chain, ':')) !== false) {
+                        $tactic = substr($chain, $pos + 1);
+                        $tactic = self::TACTIC_ALIASES[$tactic] ?? $tactic;
+                        $tactics[$tagName][$tactic] = $tactic;
+                    }
                 }
             }
-        }
-        return [
-            'axes' => array_values(self::TACTIC_AXES),
-            'current' => array_values($current),
-            'previous' => array_values($previous),
-        ];
+            $keysOf = function ($tagName) use ($tactics) {
+                return $tactics[$tagName] ?? [];
+            };
+            $now = time();
+            $axes = array_fill_keys(array_keys(self::TACTIC_AXES), 0);
+            $series = function ($start, $end) use ($user, $prefix, $keysOf, $axes) {
+                $counts = self::attributeTagCounts($user, $prefix, $start, $end, $keysOf);
+                return array_values(array_replace($axes, array_intersect_key($counts, $axes)));
+            };
+            return [
+                'axes' => array_values(self::TACTIC_AXES),
+                'current' => $series($now - 28 * self::DAY, null),
+                'previous' => $series($now - 56 * self::DAY, $now - 28 * self::DAY),
+            ];
+        });
     }
 
     private static function panelActors(array $user)
@@ -366,25 +377,87 @@ class SocWallTool
         return $out;
     }
 
-    /** Distinct new events (7d) per TLP level; untagged ones are left out. */
+    /**
+     * New attributes (7d) per TLP level, by their own or their event's
+     * tlp: tag, dump events included; untagged ones are left out.
+     */
     private static function panelTlp(array $user)
     {
         return self::cached($user, 'tlp', function () use ($user) {
             $levels = ['red' => 'red', 'amber' => 'amber', 'amber+strict' => 'amber', 'green' => 'green', 'clear' => 'clear', 'white' => 'clear'];
-            $events = [];
-            $rows = OverviewWidgetTool::eventTagRows($user, 'tlp:', time() - 7 * self::DAY, OverviewWidgetTool::dumpEventExclusion());
-            foreach ($rows as $row) {
-                $level = $levels[strtolower(substr($row[1], 4))] ?? null;
-                if ($level !== null) {
-                    $events[$level][$row[0]] = true;
-                }
-            }
+            $counts = self::attributeTagCounts($user, 'tlp:', time() - 7 * self::DAY, null, function ($tagName) use ($levels) {
+                $level = $levels[strtolower(substr($tagName, 4))] ?? null;
+                return $level === null ? [] : [$level];
+            });
             $out = [];
             foreach (['red', 'amber', 'green', 'clear'] as $level) {
-                $out[$level] = isset($events[$level]) ? count($events[$level]) : 0;
+                $out[$level] = $counts[$level] ?? 0;
             }
             return $out;
         });
+    }
+
+    /**
+     * Non-deleted attributes the viewer may see (Attribute.timestamp in
+     * [$start, $end)) per key, where an attribute's tags are its own plus
+     * its event's. $keysOf maps a tag name (starting with $tagPrefix) to
+     * the keys it counts towards; each attribute counts once per key.
+     *
+     * ponytail: attribute-level tag rows are loaded in PHP, capped at
+     * 50000; group in SQL if a window routinely exceeds that.
+     */
+    private static function attributeTagCounts(array $user, $tagPrefix, $start, $end, callable $keysOf)
+    {
+        $base = OverviewWidgetTool::window('Attribute.timestamp', $start, $end);
+        $base['Attribute.deleted'] = 0;
+        $base['Tag.name LIKE'] = $tagPrefix . '%';
+        list($conditions, $joins) = OverviewWidgetTool::attributeQuery($user, $base);
+        $find = function (array $tagJoins, array $query) use ($conditions, $joins) {
+            return ClassRegistry::init('MispAttribute')->find('all', $query + [
+                'recursive' => -1,
+                'joins' => array_merge($joins, $tagJoins),
+                'conditions' => $conditions,
+            ]);
+        };
+        $tagJoin = function ($table, $alias, $on, $tagId) {
+            return [
+                ['table' => $table, 'alias' => $alias, 'type' => 'INNER', 'conditions' => [$on]],
+                ['table' => 'tags', 'alias' => 'Tag', 'type' => 'INNER', 'conditions' => ['Tag.id = ' . $tagId]],
+            ];
+        };
+
+        $counts = [];
+        $covered = []; // key => [event_id => true], counted via an event tag
+        $rows = $find($tagJoin('event_tags', 'EventTag', 'EventTag.event_id = Attribute.event_id', 'EventTag.tag_id'), [
+            'fields' => ['Attribute.event_id', 'Tag.name', 'COUNT(*) AS total'],
+            'group' => ['Attribute.event_id', 'Tag.name'],
+        ]);
+        foreach ($rows as $row) {
+            $eventId = (int)$row['Attribute']['event_id'];
+            foreach ($keysOf((string)$row['Tag']['name']) as $key) {
+                if (!isset($covered[$key][$eventId])) {
+                    $covered[$key][$eventId] = true;
+                    $counts[$key] = ($counts[$key] ?? 0) + (int)$row[0]['total'];
+                }
+            }
+        }
+
+        $seen = [];
+        $rows = $find($tagJoin('attribute_tags', 'AttributeTag', 'AttributeTag.attribute_id = Attribute.id', 'AttributeTag.tag_id'), [
+            'fields' => ['Attribute.id', 'Attribute.event_id', 'Tag.name'],
+            'limit' => 50000,
+        ]);
+        foreach ($rows as $row) {
+            $id = (int)$row['Attribute']['id'];
+            $eventId = (int)$row['Attribute']['event_id'];
+            foreach ($keysOf((string)$row['Tag']['name']) as $key) {
+                if (!isset($covered[$key][$eventId]) && !isset($seen[$key][$id])) {
+                    $seen[$key][$id] = true;
+                    $counts[$key] = ($counts[$key] ?? 0) + 1;
+                }
+            }
+        }
+        return $counts;
     }
 
     /** Newest published events (publish_timestamp, last 7 days). */
