@@ -307,14 +307,14 @@ class SocWallTool
     }
 
     /**
-     * Newest High / Medium threat events (Event.timestamp, last 7 days),
+     * Newest non-dump events (Event.timestamp, last 7 days),
      * each with its first TLP tag the viewer may see.
      */
     private static function panelThreats(array $user)
     {
         return self::cached($user, 'threats', function () use ($user) {
             $events = self::eventRows(
-                self::eventConditions($user, ['Event.threat_level_id' => [1, 2]], time() - 7 * self::DAY),
+                self::eventConditions($user, [], time() - 7 * self::DAY),
                 ['Event.id', 'Event.info', 'Event.threat_level_id', 'Event.timestamp'],
                 ['Event.timestamp DESC'],
                 20

@@ -258,6 +258,7 @@
     }
 
     // ---- panel renderers: (data, body) -> node | undefined ------------------
+    var LEVELS = {1: 'High', 2: 'Medium', 3: 'Low', 4: 'Undefined'};
     var TONES = {events: 'rise-bad', high: 'rise-bad', sightings: 'rise-bad', proposals: 'rise-bad', correlations: 'pct'};
     var render = {
         stats: function (d, body) {
@@ -293,14 +294,14 @@
         },
         threats: function (d, body) {
             if (!d.rows.length) {
-                return empty('No High or Medium threat events in the last 7 days.');
+                return empty('No events in the last 7 days.');
             }
             var list = el('div', 'w-events');
             d.rows.forEach(function (e) {
                 var card = el('div', 'w-event');
                 var top = el('div', 'w-event-top');
-                var high = e.level === 1;
-                top.appendChild(el('span', 'w-level ' + (high ? 'is-high' : 'is-medium'), high ? 'High' : 'Medium'));
+                var level = LEVELS[e.level] || LEVELS[4];
+                top.appendChild(el('span', 'w-level is-' + level.toLowerCase(), level));
                 top.appendChild(el('span', 'w-age', age(e.ts)));
                 card.appendChild(top);
                 var info = el('div', 'w-event-info', e.info);

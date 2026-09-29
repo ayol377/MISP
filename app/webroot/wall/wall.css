@@ -114,7 +114,7 @@ button, input { font: inherit; color: inherit; }
 .w-mono { font-family: var(--mono); }
 .w-num { text-align: right; font-variant-numeric: tabular-nums; }
 
-/* ---- high-threat events ---------------------------------------------- */
+/* ---- recent events ---------------------------------------------------- */
 .w-events { display: flex; flex-direction: column; gap: .5rem; }
 .w-event { background: var(--raised-2); padding: .55rem .7rem .5rem; border-radius: 2px; }
 .w-event-top, .w-event-foot { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
@@ -122,6 +122,8 @@ button, input { font: inherit; color: inherit; }
 .w-level::before { content: '\25B2'; font-size: .7em; margin-right: .45rem; vertical-align: .1em; }
 .w-level.is-high::before { color: var(--danger); }
 .w-level.is-medium::before { color: var(--warn); }
+.w-level.is-low::before { color: var(--ok); }
+.w-level.is-undefined::before { color: var(--neutral); }
 .w-age { font: 400 .8rem var(--mono); color: var(--faint); white-space: nowrap; }
 .w-event-info {
   margin: .25rem 0 .35rem; font-size: .95rem; font-weight: 500; line-height: 1.3;
