@@ -532,7 +532,7 @@ class SocWallTool
             $rows = self::attributes($user, ['Attribute.to_ids' => 1], time() - self::DAY, [
                 'fields' => ['Event.orgc_id', 'COUNT(*) AS total'],
                 'group' => ['Event.orgc_id'],
-                'order' => ['COUNT(*) DESC'],
+                'order' => ['COUNT(Attribute.id) DESC'],
                 'limit' => 7,
             ]);
             $names = ClassRegistry::init('Organisation')->find('list', [
@@ -557,7 +557,7 @@ class SocWallTool
             $rows = self::attributes($user, [], time() - self::DAY, [
                 'fields' => ['Attribute.category', 'COUNT(*) AS total'],
                 'group' => ['Attribute.category'],
-                'order' => ['COUNT(*) DESC'],
+                'order' => ['COUNT(Attribute.id) DESC'],
                 'limit' => 8,
             ]);
             $out = [];
