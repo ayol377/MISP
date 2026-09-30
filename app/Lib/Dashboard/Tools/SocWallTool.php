@@ -14,8 +14,9 @@ App::uses('WidgetCache', 'Lib/Dashboard/Tools');
  * shortened to TTL under a separate key; the rest are bounded,
  * ACL-scoped queries cached per org for TTL.
  *
- * Event-centric panels leave out daily IOC-dump events
- * (OverviewWidgetTool::DUMP_EVENT_TAGS); attribute panels keep them.
+ * Event-centric panels leave out daily IOC-dump events (freetext /
+ * CSV feed events, OverviewWidgetTool::dumpEventExclusion()); attribute
+ * panels keep them.
  */
 class SocWallTool
 {

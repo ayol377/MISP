@@ -16,29 +16,34 @@ class OverviewWidgetTool
     const DAY = 86400;
 
     /**
-     * Event-level tags (compared lower-case) marking daily IOC dumps rather
-     * than real incidents; event-centric views can leave such events out
-     * with the `exclude_dump_events` option (see dumpEventExclusion()).
-     */
-    const DUMP_EVENT_TAGS = ['type:osint', 'osint:source-type="block-or-filter-list"'];
-
-    /**
-     * Condition leaving out events that carry a DUMP_EVENT_TAGS tag, or []
-     * when no such tag exists on this instance.
+     * Condition leaving out daily IOC-dump events, or [] when there are
+     * no such feeds: events that freetext / CSV feeds write into, i.e. a
+     * feed's fixed event or a per-pull event named "<feed name> feed"
+     * (Feed::saveFreetextFeedData()). Event-centric views opt in with the
+     * `exclude_dump_events` option. MISP-format feeds keep their source
+     * events as-is and are not matched.
+     *
+     * ponytail: per-pull events are matched on the feed's current name,
+     * so events pulled before a feed was renamed show up again.
      */
     public static function dumpEventExclusion()
     {
-        $tagIds = ClassRegistry::init('Tag')->find('column', [
-            'conditions' => ['LOWER(Tag.name)' => self::DUMP_EVENT_TAGS],
-            'fields' => ['Tag.id'],
-        ]);
-        if (empty($tagIds)) {
+        $feeds = array_column(ClassRegistry::init('Feed')->find('all', [
+            'recursive' => -1,
+            'fields' => ['Feed.name', 'Feed.event_id'],
+            'conditions' => ['Feed.source_format !=' => 'misp'],
+        ]), 'Feed');
+        if (empty($feeds)) {
             return [];
         }
-        return ['NOT' => [
-            'Event.id IN (SELECT event_id FROM event_tags WHERE tag_id IN ('
-                . implode(',', array_map('intval', $tagIds)) . '))',
-        ]];
+        $or = ['Event.info' => array_map(function ($feed) {
+            return $feed['name'] . ' feed';
+        }, $feeds)];
+        $eventIds = array_values(array_filter(array_map('intval', array_column($feeds, 'event_id'))));
+        if (!empty($eventIds)) {
+            $or['Event.id'] = $eventIds;
+        }
+        return ['NOT' => ['OR' => $or]];
     }
 
     /**
